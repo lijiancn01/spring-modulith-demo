@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 0; margin-bottom: 30px; border-radius: 0 0 20px 20px; }
+        header h1 { text-align: center; font-size: 2.5em; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
+        .tab { padding: 12px 24px; background: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: 600; color: #666; transition: all 0.3s; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .tab:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.15); }
+        .tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card { background: white; border-radius: 15px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 15px rgba(0,0,0,0.08); }
+        .card h2 { margin-bottom: 20px; color: #333; font-size: 1.5em; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border 0.3s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+        .btn-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
+        .btn-danger { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #555; }
+        tr:hover { background: #f8f9fa; }
+        .status-pending { color: #f39c12; font-weight: 600; }
+        .status-completed { color: #27ae60; font-weight: 600; }
+        .status-cancelled { color: #e74c3c; font-weight: 600; }
+        .action-buttons { display: flex; gap: 8px; }
+        .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
+        .alert-success { background: #d4edda; color: #155724; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📦 库存管理系统</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div id="alert" class="alert"></div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('products')">商品管理</button>
+            <button class="tab" onclick="showTab('inventory')">库存查询</button>
+            <button class="tab" onclick="showTab('purchase')">采购管理</button>
+            <button class="tab" onclick="showTab('sale')">销售管理</button>
+        </div>
+        
+        <div id="products" class="tab-content active">
+            <div class="card">
+                <h2>添加商品</h2>
+                <div class="form-group">
+                    <label>商品编码</label>
+                    <input type="text" id="productCode" placeholder="请输入商品编码">
+                </div>
+                <div class="form-group">
+                    <label>商品名称</label>
+                    <input type="text" id="productName" placeholder="请输入商品名称">
+                </div>
+                <div class="form-group">
+                    <label>商品描述</label>
+                    <input type="text" id="productDesc" placeholder="请输入商品描述">
+                </div>
+                <div class="form-group">
+                    <label>价格</label>
+                    <input type="number" id="productPrice" step="0.01" placeholder="请输入价格">
+                </div>
+                <button class="btn btn-primary" onclick="addProduct()">添加商品</button>
+            </div>
+            
+            <div class="card">
+                <h2>商品列表</h2>
+                <table id="productTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>编码</th>
+                            <th>名称</th>
+                            <th>描述</th>
+                            <th>价格</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="inventory" class="tab-content">
+            <div class="card">
+                <h2>库存列表</h2>
+                <table id="inventoryTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>商品ID</th>
+                            <th>库存数量</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="purchase" class="tab-content">
+            <div class="card">
+                <h2>创建采购单</h2>
+                <div class="form-group">
+                    <label>商品ID</label>
+                    <input type="number" id="purchaseProductId" placeholder="请输入商品ID">
+                </div>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" id="purchaseQuantity" placeholder="请输入数量">
+                </div>
+                <div class="form-group">
+                    <label>单价</label>
+                    <input type="number" id="purchaseUnitPrice" step="0.01" placeholder="请输入单价">
+                </div>
+                <button class="btn btn-primary" onclick="createPurchaseOrder()">创建采购单</button>
+            </div>
+            
+            <div class="card">
+                <h2>采购单列表</h2>
+                <table id="purchaseTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>订单号</th>
+                            <th>商品ID</th>
+                            <th>数量</th>
+                            <th>单价</th>
+                            <th>总额</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="sale" class="tab-content">
+            <div class="card">
+                <h2>创建销售单</h2>
+                <div class="form-group">
+                    <label>商品ID</label>
+                    <input type="number" id="saleProductId" placeholder="请输入商品ID">
+                </div>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" id="saleQuantity" placeholder="请输入数量">
+                </div>
+                <div class="form-group">
+                    <label>单价</label>
+                    <input type="number" id="saleUnitPrice" step="0.01" placeholder="请输入单价">
+                </div>
+                <button class="btn btn-primary" onclick="createSaleOrder()">创建销售单</button>
+            </div>
+            
+            <div class="card">
+                <h2>销售单列表</h2>
+                <table id="saleTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>订单号</th>
+                            <th>商品ID</th>
+                            <th>数量</th>
+                            <th>单价</th>
+                            <th>总额</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            setTimeout(() => alert.style.display = 'none', 3000);
+        }
+        
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabId === 'products') loadProducts();
+            if (tabId === 'inventory') loadInventory();
+            if (tabId === 'purchase') loadPurchaseOrders();
+            if (tabId === 'sale') loadSaleOrders();
+        }
+        
+        async function fetchData(url) {
+            const res = await fetch(url);
+            return res.json();
+        }
+        
+        async function postData(url, data) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            return res;
+        }
+        
+        async function loadProducts() {
+            const products = await fetchData('/api/products');
+            const tbody = document.querySelector('#productTable tbody');
+            tbody.innerHTML = products.map(p => `
+                <tr>
+                    <td>${p.id}</td>
+                    <td>${p.code}</td>
+                    <td>${p.name}</td>
+                    <td>${p.description || '-'}</td>
+                    <td>¥${p.price}</td>
+                </tr>
+            `).join('');
+        }
+        
+        async function addProduct() {
+            const data = {
+                code: document.getElementById('productCode').value,
+                name: document.getElementById('productName').value,
+                description: document.getElementById('productDesc').value,
+                price: parseFloat(document.getElementById('productPrice').value)
+            };
+            
+            try {
+                const res = await postData('/api/products', data);
+                if (res.ok) {
+                    showAlert('商品添加成功！', 'success');
+                    loadProducts();
+                    document.getElementById('productCode').value = '';
+                    document.getElementById('productName').value = '';
+                    document.getElementById('productDesc').value = '';
+                    document.getElementById('productPrice').value = '';
+                } else {
+                    showAlert('添加失败', 'error');
+                }
+            } catch (e) {
+                showAlert('添加失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function loadInventory() {
+            const items = await fetchData('/api/inventory');
+            const tbody = document.querySelector('#inventoryTable tbody');
+            tbody.innerHTML = items.map(i => `
+                <tr>
+                    <td>${i.id}</td>
+                    <td>${i.productId}</td>
+                    <td>${i.quantity}</td>
+                </tr>
+            `).join('');
+        }
+        
+        async function loadPurchaseOrders() {
+            const orders = await fetchData('/api/purchase-orders');
+            const tbody = document.querySelector('#purchaseTable tbody');
+            tbody.innerHTML = orders.map(o => `
+                <tr>
+                    <td>${o.id}</td>
+                    <td>${o.orderNumber}</td>
+                    <td>${o.productId}</td>
+                    <td>${o.quantity}</td>
+                    <td>¥${o.unitPrice}</td>
+                    <td>¥${o.totalAmount}</td>
+                    <td class="status-${o.status.toLowerCase()}">${o.status}</td>
+                    <td class="action-buttons">
+                        ${o.status === 'PENDING' ? `
+                            <button class="btn btn-success btn-sm" onclick="completePurchase(${o.id})">完成</button>
+                            <button class="btn btn-danger btn-sm" onclick="cancelPurchase(${o.id})">取消</button>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        async function createPurchaseOrder() {
+            const data = {
+                productId: parseInt(document.getElementById('purchaseProductId').value),
+                quantity: parseInt(document.getElementById('purchaseQuantity').value),
+                unitPrice: parseFloat(document.getElementById('purchaseUnitPrice').value)
+            };
+            
+            try {
+                const res = await postData('/api/purchase-orders', data);
+                if (res.ok) {
+                    showAlert('采购单创建成功！', 'success');
+                    loadPurchaseOrders();
+                    document.getElementById('purchaseProductId').value = '';
+                    document.getElementById('purchaseQuantity').value = '';
+                    document.getElementById('purchaseUnitPrice').value = '';
+                } else {
+                    showAlert('创建失败', 'error');
+                }
+            } catch (e) {
+                showAlert('创建失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function completePurchase(id) {
+            try {
+                const res = await postData(`/api/purchase-orders/${id}/complete`, {});
+                if (res.ok) {
+                    showAlert('采购单已完成，库存已增加！', 'success');
+                    loadPurchaseOrders();
+                    loadInventory();
+                } else {
+                    showAlert('操作失败', 'error');
+                }
+            } catch (e) {
+                showAlert('操作失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function cancelPurchase(id) {
+            try {
+                const res = await postData(`/api/purchase-orders/${id}/cancel`, {});
+                if (res.ok) {
+                    showAlert('采购单已取消！', 'success');
+                    loadPurchaseOrders();
+                } else {
+                    showAlert('操作失败', 'error');
+                }
+            } catch (e) {
+                showAlert('操作失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function loadSaleOrders() {
+            const orders = await fetchData('/api/sale-orders');
+            const tbody = document.querySelector('#saleTable tbody');
+            tbody.innerHTML = orders.map(o => `
+                <tr>
+                    <td>${o.id}</td>
+                    <td>${o.orderNumber}</td>
+                    <td>${o.productId}</td>
+                    <td>${o.quantity}</td>
+                    <td>¥${o.unitPrice}</td>
+                    <td>¥${o.totalAmount}</td>
+                    <td class="status-${o.status.toLowerCase()}">${o.status}</td>
+                    <td class="action-buttons">
+                        ${o.status === 'PENDING' ? `
+                            <button class="btn btn-success btn-sm" onclick="completeSale(${o.id})">完成</button>
+                            <button class="btn btn-danger btn-sm" onclick="cancelSale(${o.id})">取消</button>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        async function createSaleOrder() {
+            const data = {
+                productId: parseInt(document.getElementById('saleProductId').value),
+                quantity: parseInt(document.getElementById('saleQuantity').value),
+                unitPrice: parseFloat(document.getElementById('saleUnitPrice').value)
+            };
+            
+            try {
+                const res = await postData('/api/sale-orders', data);
+                if (res.ok) {
+                    showAlert('销售单创建成功！', 'success');
+                    loadSaleOrders();
+                    document.getElementById('saleProductId').value = '';
+                    document.getElementById('saleQuantity').value = '';
+                    document.getElementById('saleUnitPrice').value = '';
+                } else {
+                    showAlert('创建失败', 'error');
+                }
+            } catch (e) {
+                showAlert('创建失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function completeSale(id) {
+            try {
+                const res = await postData(`/api/sale-orders/${id}/complete`, {});
+                if (res.ok) {
+                    showAlert('销售单已完成，库存已减少！', 'success');
+                    loadSaleOrders();
+                    loadInventory();
+                } else {
+                    const error = await res.text();
+                    showAlert('操作失败: ' + error, 'error');
+                }
+            } catch (e) {
+                showAlert('操作失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function cancelSale(id) {
+            try {
+                const res = await postData(`/api/sale-orders/${id}/cancel`, {});
+                if (res.ok) {
+                    showAlert('销售单已取消！', 'success');
+                    loadSaleOrders();
+                } else {
+                    showAlert('操作失败', 'error');
+                }
+            } catch (e) {
+                showAlert('操作失败: ' + e.message, 'error');
+            }
+        }
+        
+        window.onload = () => {
+            loadProducts();
+        };
+    </script>
+</body>
+</html>
