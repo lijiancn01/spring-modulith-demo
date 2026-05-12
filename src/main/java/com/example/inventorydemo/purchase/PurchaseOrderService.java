@@ -2,7 +2,7 @@ package com.example.inventorydemo.purchase;
 
 import com.example.inventorydemo.inventory.StockAddedEvent;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.events.EventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +16,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PurchaseOrderService {
     private final PurchaseOrderRepository purchaseOrderRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventPublisher eventPublisher;
 
     public List<PurchaseOrder> getAllPurchaseOrders() {
         return purchaseOrderRepository.findAll();

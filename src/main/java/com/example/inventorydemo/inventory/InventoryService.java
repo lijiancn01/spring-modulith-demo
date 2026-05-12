@@ -1,7 +1,7 @@
 package com.example.inventorydemo.inventory;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.event.EventListener;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,13 +41,13 @@ public class InventoryService {
     }
 
     @Transactional
-    @EventListener
+    @ApplicationModuleListener
     public void handleStockAdded(StockAddedEvent event) {
         addStock(event.productId(), event.quantity());
     }
 
     @Transactional
-    @EventListener
+    @ApplicationModuleListener
     public void handleStockDeducted(StockDeductedEvent event) {
         deductStock(event.productId(), event.quantity());
     }
