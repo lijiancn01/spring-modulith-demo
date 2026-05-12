@@ -19,7 +19,7 @@
     <description>Inventory Management Demo with Spring Modulith</description>
     
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
         <spring-modulith.version>2.0.6</spring-modulith.version>
     </properties>
     
