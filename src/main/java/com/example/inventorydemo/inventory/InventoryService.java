@@ -3,7 +3,6 @@ package com.example.inventorydemo.inventory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -42,13 +41,11 @@ public class InventoryService {
         return inventoryRepository.save(inventory);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @ApplicationModuleListener
     public void handleStockAdded(StockAddedEvent event) {
         addStock(event.productId(), event.quantity());
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @ApplicationModuleListener
     public void handleStockDeducted(StockDeductedEvent event) {
         deductStock(event.productId(), event.quantity());
