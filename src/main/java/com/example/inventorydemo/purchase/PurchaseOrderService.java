@@ -2,7 +2,6 @@ package com.example.inventorydemo.purchase;
 
 import com.example.inventorydemo.inventory.StockAddedEvent;
 import lombok.RequiredArgsConstructor;
-import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
