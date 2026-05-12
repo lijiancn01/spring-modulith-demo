@@ -146,10 +146,10 @@ spring.modulith.events.republish-outstanding-on-restart=true
 
 ### 1. Maven 依赖下载超时
 
-**问题**：使用阿里云镜像时连接超时，无法下载依赖。
+**问题**：无法下载maven依赖。
 
 **解决方案**：
-- 使用 Maven Central 官方仓库
+- 使用 Maven Central 官方仓库，不用使用国内镜像（阿里云，华为云等都不要使用）。
 - 配置 Maven 代理（如公司内网代理）
 - 修改 `~/.m2/settings.xml` 配置：
 ```xml
