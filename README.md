@@ -153,19 +153,20 @@ spring.modulith.events.republish-outstanding-on-restart=true
 - 配置 Maven 代理（如公司内网代理）
 - 修改 `~/.m2/settings.xml` 配置：
 ```xml
-<settings>
-    <proxies>
-        <proxy>
-            <id>example-proxy</id>
-            <active>true</active>
-            <protocol>http</protocol>
-            <host>proxy.example.com</host>
-            <port>8080</port>
-            <username>proxyuser</username>
-            <password>somepassword</password>
-            <nonProxyHosts>www.google.com|*.example.com</nonProxyHosts>
-        </proxy>
-    </proxies>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0
+          https://maven.apache.org/xsd/settings-1.2.0.xsd">
+  <proxies>
+    <proxy>
+      <id>proxy</id>
+      <active>true</active>
+      <protocol>https</protocol>
+      <host>127.0.0.1</host>
+      <port>18080</port>
+      <nonProxyHosts>localhost|127.0.0.1|*.local</nonProxyHosts>
+    </proxy>
+  </proxies>
 </settings>
 ```
 
