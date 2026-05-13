@@ -1,6 +1,6 @@
 # 库存管理系统 - Spring Boot + Modulith
 
-基于 Spring Boot 3 和 Spring Modulith 2.0.6 构建的库存管理系统演示项目。
+基于 Spring Boot 3.5.14 和 Spring Modulith 1.4.11 构建的库存管理系统演示项目。
 
 ## 项目特性
 
@@ -11,13 +11,15 @@
 - 基于 Spring Modulith 的事件驱动架构
 - JDBC 持久化事件存储
 - 事件归档支持
+- Spring Native 原生镜像支持（启动速度快、内存占用低）
 
 ## 技术栈
 
-- Spring Boot 3.3.0
-- Spring Modulith 2.0.6
+- Spring Boot 3.5.14
+- Spring Modulith 1.4.11
+- Spring Native 0.12.1
 - Spring Data JPA
-- MySQL
+- H2 内存数据库（默认）/ MySQL
 - Lombok
 
 ## 项目结构
@@ -25,7 +27,9 @@
 ```
 src/main/java/com/example/inventorydemo/
 ├── InventoryDemoApplication.java          # 主应用类
-├── EventArchivingConfiguration.java       # 事件归档配置
+├── DataInitializer.java                   # 数据初始化
+├── event/                                # 事件监控
+│   └── EventController.java
 ├── product/                               # 商品模块
 │   ├── Product.java
 │   ├── ProductRepository.java
@@ -35,7 +39,7 @@ src/main/java/com/example/inventorydemo/
 │   ├── Inventory.java
 │   ├── InventoryRepository.java
 │   ├── InventoryService.java
-│   ├── InventoryController.java
+│   ├── InventoryEventListener.java
 │   ├── StockAddedEvent.java
 │   └── StockDeductedEvent.java
 ├── purchase/                              # 采购模块
@@ -54,21 +58,29 @@ src/main/java/com/example/inventorydemo/
 
 ## 数据库配置
 
-确保 MySQL 服务已启动，修改 `application.properties` 中的数据库连接信息：
+默认使用 H2 内存数据库，启动时会自动创建表结构。
+
+### 使用 MySQL（可选）
+
+修改 `application.properties` 中的数据库连接信息：
 
 ```properties
+# 注释 H2 配置，启用 MySQL 配置
+# spring.datasource.url=jdbc:h2:mem:inventorydb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+# spring.datasource.driverClassName=org.h2.Driver
 spring.datasource.url=jdbc:mysql://localhost:3306/inventory_demo
 spring.datasource.username=root
 spring.datasource.password=root
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
 ```
-
-首次运行时，Hibernate 会自动创建所需的表结构。
 
 ## 运行项目
 
-1. 确保已安装 JDK 21 和 Maven
-2. 启动 MySQL 服务
-3. 运行以下命令：
+### 标准运行（JVM模式）
+
+1. 确保已安装 JDK 17 和 Maven
+2. 运行以下命令：
 
 ```bash
 mvn spring-boot:run
@@ -81,36 +93,194 @@ mvn clean package
 java -jar target/inventory-demo-0.0.1-SNAPSHOT.jar
 ```
 
+### 原生运行（Spring Native模式）
+
+Spring Native 可以将应用编译为原生可执行文件，启动速度更快、内存占用更低。
+
+#### 前置要求
+
+1. **安装 GraalVM**：
+   ```bash
+   # 使用 SDKMAN（推荐）
+   sdk install java 22.3.1.r17-grl
+
+   # 或下载安装包
+   # https://github.com/graalvm/graalvm-ce-builds/releases
+   ```
+
+2. **安装 Native Image 工具**：
+   ```bash
+   gu install native-image
+   ```
+
+3. **配置环境变量**：
+   ```bash
+   export JAVA_HOME=/path/to/graalvm
+   export PATH=$JAVA_HOME/bin:$PATH
+   ```
+
+#### 构建原生镜像
+
+```bash
+mvn clean package -Pnative
+```
+
+构建过程可能需要几分钟时间。构建完成后，运行原生可执行文件：
+
+```bash
+./target/inventory-demo
+```
+
+#### 性能对比
+
+| 指标 | JVM 模式 | Native 模式 |
+|------|---------|-------------|
+| 启动时间 | 3-5 秒 | 0.1-0.5 秒 |
+| 内存占用 | 200-300 MB | 50-100 MB |
+| 首次响应 | 1-2 秒 | < 0.1 秒 |
+
 ## 访问应用
 
 启动成功后，在浏览器中访问：
 
 - 主界面：http://localhost:8080/
+- H2 控制台：http://localhost:8080/h2-console
 - API 端点：
   - 商品：http://localhost:8080/api/products
   - 库存：http://localhost:8080/api/inventory
   - 采购单：http://localhost:8080/api/purchase-orders
   - 销售单：http://localhost:8080/api/sale-orders
+  - 事件监控：http://localhost:8080/api/events/archive
 
 ## 使用流程
 
-1. **添加商品**：在商品管理页面添加新商品
+1. **查看商品**：系统会自动初始化 3 个示例商品
 2. **创建采购单**：在采购管理页面创建采购单，指定商品、数量和单价
 3. **完成采购**：点击采购单的"完成"按钮，库存会自动增加
 4. **创建销售单**：在销售管理页面创建销售单
 5. **完成销售**：点击销售单的"完成"按钮，库存会自动减少（库存不足时会报错）
+6. **查看事件归档**：在事件监控页面查看所有已归档的事件
 
 ## 事件机制
 
-项目使用 Spring Modulith 的事件机制：
+项目完全使用 Spring Modulith 的原生事件机制：
 
 - 采购单完成时发布 `StockAddedEvent`，库存模块监听并增加库存
 - 销售单完成时发布 `StockDeductedEvent`，库存模块监听并减少库存
 - 事件通过 JDBC 持久化存储
-- 已完成事件会在 5 分钟后自动归档删除
+- 配置 `spring.modulith.events.completion-mode=archive` 启用事件归档
+
+## 关键配置说明
+
+```properties
+# 启用事件持久化表结构自动初始化
+spring.modulith.events.jdbc.schema-initialization.enabled=true
+
+# 事件完成模式为 archive（归档）
+spring.modulith.events.completion-mode=archive
+
+# 重启时重新发布未完成的事件
+spring.modulith.events.republish-outstanding-on-restart=true
+```
 
 ## 注意事项
 
-- 确保 MySQL 服务正常运行
-- 确保数据库用户有足够的权限创建表和数据库
+- 默认使用 H2 内存数据库，重启后数据会丢失
+- 如需持久化数据，配置使用 MySQL
 - 销售操作会检查库存是否充足，不足时会报错
+
+---
+
+## 常见问题与解决方案（踩坑记录）
+
+### 1. Maven 依赖下载超时
+
+**问题**：使用阿里云镜像时连接超时，无法下载依赖。
+
+**解决方案**：
+- 使用 Maven Central 官方仓库
+- 配置 Maven 代理（如公司内网代理）
+- 修改 `~/.m2/settings.xml` 配置：
+```xml
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0
+          https://maven.apache.org/xsd/settings-1.2.0.xsd">
+  <proxies>
+    <proxy>
+      <id>proxy</id>
+      <active>true</active>
+      <protocol>https</protocol>
+      <host>127.0.0.1</host>
+      <port>18080</port>
+      <nonProxyHosts>localhost|127.0.0.1|*.local</nonProxyHosts>
+    </proxy>
+  </proxies>
+</settings>
+```
+
+### 2. Lombok 注解处理器不工作
+
+**问题**：编译时报错 `cannot find symbol method getXXX()` 或 `setXXX()`。
+
+**解决方案**：
+- 在 `pom.xml` 中配置 `maven-compiler-plugin` 的注解处理器路径
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <configuration>
+        <annotationProcessorPaths>
+            <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </path>
+        </annotationProcessorPaths>
+    </configuration>
+</plugin>
+```
+
+### 3. 事件表（EVENT_PUBLICATION）没有自动创建
+
+**问题**：启动后数据库中没有 `EVENT_PUBLICATION` 和 `EVENT_PUBLICATION_ARCHIVE` 表。
+
+**解决方案**：
+
+**必须添加以下依赖**（缺一不可）：
+```xml
+<dependency>
+    <groupId>org.springframework.modulith</groupId>
+    <artifactId>spring-modulith-starter-jdbc</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.modulith</groupId>
+    <artifactId>spring-modulith-events-jackson</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-jdbc</artifactId>
+</dependency>
+```
+
+**必须配置以下内容**：
+```properties
+# 启用事件持久化表结构自动初始化
+spring.modulith.events.jdbc.schema-initialization.enabled=true
+
+# 事件完成模式为 archive（归档）
+spring.modulith.events.completion-mode=archive
+
+# H2 数据库需设置 MODE=MySQL
+spring.datasource.url=jdbc:h2:mem:inventorydb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+```
+
+---
+
+## 参考项目
+
+本项目参考了 [business-erp](https://gitee.com/lijiancn01/business-erp.git) 的配置方式，特别感谢该项目提供的 Spring Modulith 最佳实践。
+
+## License
+
+MIT License
