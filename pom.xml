@@ -35,7 +35,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aot</artifactId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.modulith</groupId>
@@ -119,7 +119,6 @@
                     <plugin>
                         <groupId>org.springframework.aot</groupId>
                         <artifactId>spring-aot-maven-plugin</artifactId>
-                        <version>${spring-boot.version}</version>
                         <configuration>
                             <removeXmlAutoconfigurers>true</removeXmlAutoconfigurers>
                             <verifyReflection>false</verifyReflection>
@@ -131,18 +130,11 @@
                                     <goal>generate</goal>
                                 </goals>
                             </execution>
-                            <execution>
-                                <id>test-generate-aot</id>
-                                <goals>
-                                    <goal>test-generate</goal>
-                                </goals>
-                            </execution>
                         </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.graalvm.buildtools</groupId>
                         <artifactId>native-maven-plugin</artifactId>
-                        <version>0.10.3</version>
                         <configuration>
                             <imageName>${project.artifactId}</imageName>
                             <mainClass>${start-class}</mainClass>
@@ -158,13 +150,6 @@
                                     <goal>compile-no-fork</goal>
                                 </goals>
                                 <phase>package</phase>
-                            </execution>
-                            <execution>
-                                <id>test-native</id>
-                                <goals>
-                                    <goal>test-compile</goal>
-                                </goals>
-                                <phase>test</phase>
                             </execution>
                         </executions>
                     </plugin>
