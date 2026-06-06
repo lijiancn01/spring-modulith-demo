@@ -8,9 +8,11 @@
 - 库存管理模块
 - 采购管理模块（采购单增加库存）
 - 销售管理模块（销售单扣减库存）
+- 结算管理模块（采购应付 / 销售应收）
 - 基于 Spring Modulith 的事件驱动架构
 - JDBC 持久化事件存储
 - 事件归档支持
+- `@CrossDb` 跨库事件注解（参考 `@Externalized` 设计）
 - 使用 Spring Modulith 原生功能，无需自定义事件持久化代码
 
 ## 技术栈
@@ -27,7 +29,12 @@
 src/main/java/com/example/inventorydemo/
 ├── InventoryDemoApplication.java          # 主应用类
 ├── DataInitializer.java                   # 数据初始化
-├── event/                                 # 事件监控
+├── event/                                 # 事件监控 + 跨库事件
+│   ├── CrossDb.java                       # @CrossDb 跨库事件注解
+│   ├── CrossDbTargetRegistry.java         # 跨库目标注册表（模块→JdbcTemplate+listenerId）
+│   ├── CrossDbEventProcessor.java         # 跨库事件处理器（自动拦截@CrossDb事件）
+│   ├── CrossDbTargetConfig.java           # 跨库目标注册配置
+│   ├── CrossDbEventConsumer.java          # 跨库事件消费触发器（定时resubmit）
 │   └── EventController.java
 ├── product/                               # 商品模块
 │   ├── Product.java
@@ -38,21 +45,29 @@ src/main/java/com/example/inventorydemo/
 │   ├── Inventory.java
 │   ├── InventoryRepository.java
 │   ├── InventoryService.java
-│   ├── InventoryEventListener.java
-│   ├── StockAddedEvent.java
-│   └── StockDeductedEvent.java
+│   └── InventoryEventListener.java
 ├── purchase/                              # 采购模块
 │   ├── PurchaseOrder.java
+│   ├── PurchaseOrderCompletedEvent.java   # 采购完成事件（@CrossDb）
 │   ├── PurchaseOrderStatus.java
 │   ├── PurchaseOrderRepository.java
 │   ├── PurchaseOrderService.java
 │   └── PurchaseOrderController.java
-└── sale/                                  # 销售模块
-    ├── SaleOrder.java
-    ├── SaleOrderStatus.java
-    ├── SaleOrderRepository.java
-    ├── SaleOrderService.java
-    └── SaleOrderController.java
+├── sale/                                  # 销售模块
+│   ├── SaleOrder.java
+│   ├── SaleOrderCompletedEvent.java       # 销售完成事件（@CrossDb）
+│   ├── SaleOrderStatus.java
+│   ├── SaleOrderRepository.java
+│   ├── SaleOrderService.java
+│   └── SaleOrderController.java
+└── settlement/                            # 结算模块
+    ├── Settlement.java
+    ├── SettlementType.java
+    ├── SettlementStatus.java
+    ├── SettlementRepository.java
+    ├── SettlementService.java
+    ├── SettlementController.java
+    └── SettlementEventListener.java
 ```
 
 ## 数据库配置
@@ -101,6 +116,7 @@ java -jar target/inventory-demo-0.0.1-SNAPSHOT.jar
   - 库存：http://localhost:8080/api/inventory
   - 采购单：http://localhost:8080/api/purchase-orders
   - 销售单：http://localhost:8080/api/sale-orders
+  - 结算单：http://localhost:8080/api/settlements
   - 事件监控：http://localhost:8080/api/events/archive
 
 ## 使用流程
@@ -116,10 +132,11 @@ java -jar target/inventory-demo-0.0.1-SNAPSHOT.jar
 
 项目完全使用 Spring Modulith 的原生事件机制：
 
-- 采购单完成时发布 `StockAddedEvent`，库存模块监听并增加库存
-- 销售单完成时发布 `StockDeductedEvent`，库存模块监听并减少库存
+- 采购单完成时发布 `PurchaseOrderCompletedEvent`，库存模块和结算模块同时监听
+- 销售单完成时发布 `SaleOrderCompletedEvent`，库存模块和结算模块同时监听
 - 事件通过 JDBC 持久化存储
 - 配置 `spring.modulith.events.completion-mode=archive` 启用事件归档
+- `@CrossDb` 注解支持将事件写入消费者所在库的 EVENT_PUBLICATION 表
 
 ### 一个事件被多个模块消费的设计
 
@@ -174,6 +191,91 @@ public void handlePurchaseCompleted(PurchaseOrderCompletedEvent event) {
 - 新增消费方零改动：只需新增监听器，发布方完全不用改
 - 消费状态独立跟踪：某个监听器失败不影响其他监听器
 - 事件语义清晰：描述业务事实而非实现细节
+
+### 跨库事件消费：@CrossDb 注解方案
+
+#### 问题背景
+
+当消费者模块（如结算模块）位于独立数据库时，Spring Modulith 原生的事件机制无法跨库投递事件——生产者库的 EVENT_PUBLICATION 表对消费者不可见。
+
+#### 设计思路
+
+参考 Spring Modulith 的 `@Externalized` 注解设计理念：`@Externalized` 通过注解声明将事件外部化到 Kafka，消费者无需感知生产者数据库；`@CrossDb` 同理，通过注解声明将事件写入消费者所在库的原生 EVENT_PUBLICATION 表，消费者使用 `@ApplicationModuleListener` 正常消费即可。
+
+#### 工作流程
+
+```
+生产者事务提交
+    ↓
+CrossDbEventProcessor（@TransactionalEventListener AFTER_COMMIT）
+    ↓ 检查事件是否有 @CrossDb 注解
+    ↓ 有 → 遍历 targetModules
+    ↓     → 从 CrossDbTargetRegistry 获取目标 JdbcTemplate + listenerId
+    ↓     → 幂等检查 + INSERT INTO 目标库.EVENT_PUBLICATION
+    ↓
+目标库 CrossDbEventConsumer（@Scheduled 定时）
+    ↓ resubmitIncompletePublications()
+    ↓
+@ApplicationModuleListener 消费 → 归档到 EVENT_PUBLICATION_ARCHIVE
+```
+
+#### 核心组件
+
+| 组件 | 职责 |
+|------|------|
+| `@CrossDb` | 注解，标记在事件类上声明目标模块 |
+| `CrossDbTargetRegistry` | 注册表，维护模块名→JdbcTemplate + 按事件类型的 listenerId 映射 |
+| `CrossDbEventProcessor` | 处理器，自动拦截 @CrossDb 事件并写入目标库 |
+| `CrossDbTargetConfig` | 配置类，注册目标模块的 JdbcTemplate 和 listenerId |
+| `CrossDbEventConsumer` | 消费触发器，定时 resubmit 让消费者库的监听器消费事件 |
+
+#### 使用方式
+
+只需在事件类上加注解，无需手动编写跨库发布逻辑：
+
+```java
+@CrossDb(targetModules = {"settlement"})
+public record PurchaseOrderCompletedEvent(
+    Long orderId, Long productId, int quantity,
+    BigDecimal unitPrice, BigDecimal totalAmount
+) {}
+```
+
+消费者侧使用 `@ApplicationModuleListener` 正常监听，加幂等保护：
+
+```java
+@ApplicationModuleListener
+public void handlePurchaseCompleted(PurchaseOrderCompletedEvent event) {
+    if (settlementRepository.existsByOrderIdAndType(event.orderId(), SettlementType.PAYABLE)) {
+        return; // 幂等：已存在则跳过
+    }
+    settlementService.createSettlement(event.orderId(), SettlementType.PAYABLE, event.totalAmount());
+}
+```
+
+配置目标模块的 JdbcTemplate 和 listenerId：
+
+```java
+@PostConstruct
+public void registerTargets() {
+    targetRegistry.register("settlement", settlementJdbcTemplate);
+    targetRegistry.registerListenerId("settlement",
+        PurchaseOrderCompletedEvent.class.getName(),
+        "com.example.inventorydemo.settlement.SettlementEventListener.handlePurchaseCompleted(com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent)");
+}
+```
+
+#### 关键设计决策
+
+1. **listenerId 必须包含参数类型**：Spring Modulith 生成的 listenerId 格式为 `类名.方法名(参数全限定名)`，如 `SettlementEventListener.handlePurchaseCompleted(com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent)`。如果缺少参数类型，resubmit 时会报 "Listener not found" 错误。
+
+2. **按事件类型注册 listenerId**：同一模块可能有多个监听方法（如结算模块同时监听采购完成和销售完成），需要按事件类型分别注册对应的 listenerId。
+
+3. **幂等保护**：跨库事件可能重复投递（resubmit 机制），消费者必须做幂等检查。CrossDbEventProcessor 在写入时也做了幂等检查（按 EVENT_TYPE + LISTENER_ID + SERIALIZED_EVENT 去重）。
+
+4. **事务后写入**：使用 `@TransactionalEventListener(phase = AFTER_COMMIT)` 确保只在生产者事务提交后才写入目标库，避免事务回滚导致的不一致。
+
+5. **复用原生 EVENT_PUBLICATION 表**：写入消费者库的原生事件表，消费者用 `@ApplicationModuleListener` 正常消费，消费后自动归档，无需自定义事件表。
 
 ## 关键配置说明
 
