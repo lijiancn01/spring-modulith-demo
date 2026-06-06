@@ -5,7 +5,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
-import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.modulith.Modulith;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -16,7 +15,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 })
 @Modulith
 @EnableScheduling
-@EnableKafka
 public class InventoryDemoApplication {
     public static void main(String[] args) {
         SpringApplication.run(InventoryDemoApplication.class, args);

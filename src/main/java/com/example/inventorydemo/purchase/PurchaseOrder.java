@@ -39,4 +39,10 @@ public class PurchaseOrder {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PurchaseOrderStatus status = PurchaseOrderStatus.PENDING;
+
+    @Column(name = "settled_quantity")
+    private Integer settledQuantity = 0;
+
+    @Column(name = "settled_amount")
+    private BigDecimal settledAmount = BigDecimal.ZERO;
 }
