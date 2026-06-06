@@ -121,6 +121,60 @@ java -jar target/inventory-demo-0.0.1-SNAPSHOT.jar
 - 事件通过 JDBC 持久化存储
 - 配置 `spring.modulith.events.completion-mode=archive` 启用事件归档
 
+### 一个事件被多个模块消费的设计
+
+当新增模块（如结算模块）也需要消费采购完成事件时，**不需要为每个消费方写单独的事件**，直接让多个模块监听同一个事件即可。
+
+**核心原则**：事件语义应描述"业务事实"（如采购完成），而非"消费方的动作"（如库存增加）。
+
+```
+采购模块发布 PurchaseOrderCompletedEvent
+         ↓
+    ┌────┴────┐
+    ↓         ↓
+ 库存模块    结算模块
+ (监听)     (监听)
+```
+
+Spring Modulith 在 `EVENT_PUBLICATION` 表中为每个监听器生成独立记录，消费状态互不影响：
+
+| ID | EVENT_TYPE | LISTENER_ID | COMPLETION_DATE |
+|----|-----------|-------------|-----------------|
+| xxx | PurchaseOrderCompletedEvent | InventoryEventListener.handlePurchaseCompleted | 10:00:01 |
+| yyy | PurchaseOrderCompletedEvent | SettlementEventListener.handlePurchaseCompleted | **null** |
+
+即使库存模块消费成功、结算模块消费失败，重启后也只会重放结算模块那条。
+
+**代码示例**：
+
+```java
+// 1. 定义通用领域事件（放在发布方模块）
+public record PurchaseOrderCompletedEvent(
+    Long orderId, Long productId, int quantity,
+    BigDecimal unitPrice, BigDecimal totalAmount
+) {}
+
+// 2. 发布方：只发布一个事件
+eventPublisher.publishEvent(new PurchaseOrderCompletedEvent(...));
+
+// 3. 库存模块监听
+@ApplicationModuleListener
+public void handlePurchaseCompleted(PurchaseOrderCompletedEvent event) {
+    inventoryService.addStock(event.productId(), event.quantity());
+}
+
+// 4. 结算模块监听
+@ApplicationModuleListener
+public void handlePurchaseCompleted(PurchaseOrderCompletedEvent event) {
+    settlementService.createPayable(event.orderId(), event.totalAmount());
+}
+```
+
+**优势**：
+- 新增消费方零改动：只需新增监听器，发布方完全不用改
+- 消费状态独立跟踪：某个监听器失败不影响其他监听器
+- 事件语义清晰：描述业务事实而非实现细节
+
 ## 关键配置说明
 
 ```properties
