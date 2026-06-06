@@ -1,6 +1,6 @@
 package com.example.inventorydemo.purchase;
 
-import com.example.inventorydemo.inventory.StockAddedEvent;
+import com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -47,7 +47,9 @@ public class PurchaseOrderService {
             throw new RuntimeException("Order is not in pending status");
         }
         order.setStatus(PurchaseOrderStatus.COMPLETED);
-        eventPublisher.publishEvent(new StockAddedEvent(order.getProductId(), order.getQuantity()));
+        eventPublisher.publishEvent(new PurchaseOrderCompletedEvent(
+                order.getId(), order.getProductId(), order.getQuantity(),
+                order.getUnitPrice(), order.getTotalAmount()));
         return purchaseOrderRepository.save(order);
     }
 

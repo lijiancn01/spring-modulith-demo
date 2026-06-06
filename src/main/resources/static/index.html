@@ -35,6 +35,9 @@
         .status-pending { color: #f39c12; font-weight: 600; }
         .status-completed { color: #27ae60; font-weight: 600; }
         .status-cancelled { color: #e74c3c; font-weight: 600; }
+        .status-settled { color: #27ae60; font-weight: 600; }
+        .type-payable { color: #e74c3c; font-weight: 600; }
+        .type-receivable { color: #27ae60; font-weight: 600; }
         .action-buttons { display: flex; gap: 8px; }
         .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
         .alert-success { background: #d4edda; color: #155724; }
@@ -56,6 +59,7 @@
             <button class="tab" onclick="showTab('inventory')">库存查询</button>
             <button class="tab" onclick="showTab('purchase')">采购管理</button>
             <button class="tab" onclick="showTab('sale')">销售管理</button>
+            <button class="tab" onclick="showTab('settlement')">结算管理</button>
             <button class="tab" onclick="showTab('events')">事件监控</button>
         </div>
         
@@ -190,10 +194,29 @@
             </div>
         </div>
 
+        <div id="settlement" class="tab-content">
+            <div class="card">
+                <h2>结算列表</h2>
+                <table id="settlementTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>订单ID</th>
+                            <th>类型</th>
+                            <th>金额</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
         <div id="events" class="tab-content">
             <div class="card">
                 <h2>Spring Modulith 事件归档统计</h2>
-                <div style="display: flex; gap: 20px; margin-bottom: 20px;">
                     <div style="flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; color: white; text-align: center;">
                         <div style="font-size: 2em; font-weight: bold;" id="archiveCount">-</div>
                         <div>已归档事件数</div>
@@ -243,6 +266,7 @@
             if (tabId === 'inventory') loadInventory();
             if (tabId === 'purchase') loadPurchaseOrders();
             if (tabId === 'sale') loadSaleOrders();
+            if (tabId === 'settlement') loadSettlements();
             if (tabId === 'events') loadEventStats();
         }
         
@@ -457,6 +481,41 @@
                 }
             } catch (e) {
                 showAlert('操作失败: ' + e.message, 'error');
+            }
+        }
+
+        async function loadSettlements() {
+            const settlements = await fetchData('/api/settlements');
+            const tbody = document.querySelector('#settlementTable tbody');
+            tbody.innerHTML = settlements.map(s => `
+                <tr>
+                    <td>${s.id}</td>
+                    <td>${s.orderId}</td>
+                    <td class="type-${s.type.toLowerCase()}">${s.type === 'PAYABLE' ? '应付' : '应收'}</td>
+                    <td>¥${s.amount}</td>
+                    <td class="status-${s.status.toLowerCase()}">${s.status === 'PENDING' ? '待结算' : '已结算'}</td>
+                    <td>${new Date(s.createdAt).toLocaleString('zh-CN')}</td>
+                    <td class="action-buttons">
+                        ${s.status === 'PENDING' ? `
+                            <button class="btn btn-success btn-sm" onclick="settleOrder(${s.id})">结算</button>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function settleOrder(id) {
+            try {
+                const res = await postData(`/api/settlements/${id}/settle`, {});
+                if (res.ok) {
+                    showAlert('结算成功！', 'success');
+                    loadSettlements();
+                } else {
+                    const error = await res.text();
+                    showAlert('结算失败: ' + error, 'error');
+                }
+            } catch (e) {
+                showAlert('结算失败: ' + e.message, 'error');
             }
         }
 

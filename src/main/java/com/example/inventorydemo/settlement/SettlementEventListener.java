@@ -1,4 +1,4 @@
-package com.example.inventorydemo.inventory;
+package com.example.inventorydemo.settlement;
 
 import com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent;
 import com.example.inventorydemo.sale.SaleOrderCompletedEvent;
@@ -8,17 +8,17 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class InventoryEventListener {
+public class SettlementEventListener {
 
-    private final InventoryService inventoryService;
+    private final SettlementService settlementService;
 
     @ApplicationModuleListener
     public void handlePurchaseCompleted(PurchaseOrderCompletedEvent event) {
-        inventoryService.addStock(event.productId(), event.quantity());
+        settlementService.createSettlement(event.orderId(), SettlementType.PAYABLE, event.totalAmount());
     }
 
     @ApplicationModuleListener
     public void handleSaleCompleted(SaleOrderCompletedEvent event) {
-        inventoryService.deductStock(event.productId(), event.quantity());
+        settlementService.createSettlement(event.orderId(), SettlementType.RECEIVABLE, event.totalAmount());
     }
 }
