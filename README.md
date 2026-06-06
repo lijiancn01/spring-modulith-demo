@@ -131,8 +131,10 @@ spring.modulith.events.jdbc.schema-initialization.enabled=true
 spring.modulith.events.completion-mode=archive
 
 # 重启时重新发布未完成的事件
-spring.modulith.events.republish-outstanding-on-restart=true
+spring.modulith.events.republish-outstanding-events-on-restart=true
 ```
+
+> **注意**：属性名是 `republish-outstanding-events-on-restart`，不是 `republish-outstanding-on-restart`，少了 `events` 会导致配置不生效。
 
 ## 注意事项
 
@@ -225,6 +227,97 @@ spring.modulith.events.completion-mode=archive
 # H2 数据库需设置 MODE=MySQL
 spring.datasource.url=jdbc:h2:mem:inventorydb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
 ```
+
+### 4. 事件重启后未重放（属性名写错）
+
+**问题**：配置了 `republish-outstanding-on-restart=true`，但项目重启后 `EVENT_PUBLICATION` 表中未消费的事件仍然没有被重新消费。
+
+**原因**：属性名写错了，正确的属性名是 `republish-outstanding-events-on-restart`（中间多了 `events`），写错后 Spring Modulith 不会报错，但配置不生效。
+
+**解决方案**：
+
+```properties
+# 错误写法（不生效，不会报错）
+spring.modulith.events.republish-outstanding-on-restart=true
+
+# 正确写法
+spring.modulith.events.republish-outstanding-events-on-restart=true
+```
+
+### 5. 事件重放验证步骤
+
+以下为已验证的事件重放完整流程，确认 Spring Modulith 在项目重启后能正确重新消费未完成的事件。
+
+**前提条件**：必须使用持久化数据库（如 H2 文件模式、MySQL、PostgreSQL 等），内存数据库重启后数据丢失无法验证。
+
+**验证步骤**：
+
+1. **切换为持久化数据库**
+
+   将 `application.properties` 中的 H2 连接从内存模式改为文件模式：
+   ```properties
+   spring.datasource.url=jdbc:h2:file:./data/inventorydb;MODE=MySQL;AUTO_SERVER=TRUE
+   ```
+
+2. **模拟事件消费失败**
+
+   在 `InventoryEventListener.handleStockAdded()` 中临时抛出异常：
+   ```java
+   @ApplicationModuleListener
+   public void handleStockAdded(StockAddedEvent event) {
+       throw new RuntimeException("模拟消费失败");
+   }
+   ```
+
+3. **启动应用，创建并完成采购单**
+
+   - 调用 `POST /api/purchase-orders` 创建采购单
+   - 调用 `POST /api/purchase-orders/{id}/complete` 完成采购单
+   - 由于监听器抛异常，事件消费失败，留在 `EVENT_PUBLICATION` 表中
+
+4. **验证未消费事件**
+
+   ```bash
+   curl http://localhost:8080/api/events/publication/count
+   # 返回 {"count": 1}  ← 有1个未消费事件
+
+   curl http://localhost:8080/api/events/archive/count
+   # 返回 {"count": 0}  ← 归档为0
+   ```
+
+5. **恢复监听器代码，重启应用**
+
+   移除临时异常，恢复正常逻辑后重启。
+
+6. **验证事件已被重放消费**
+
+   ```bash
+   curl http://localhost:8080/api/events/publication/count
+   # 返回 {"count": 0}  ← 未消费事件已清零
+
+   curl http://localhost:8080/api/events/archive/count
+   # 返回 {"count": 1}  ← 事件已被重新消费并归档
+   ```
+
+**事件重放机制原理**：
+
+```
+发布事件 → 写入 EVENT_PUBLICATION 表（COMPLETION_DATE = null）
+         → @ApplicationModuleListener 消费
+            → 成功：设置 COMPLETION_DATE → 归档到 EVENT_PUBLICATION_ARCHIVE
+            → 失败/未消费：COMPLETION_DATE 保持 null → 留在表中
+         → 重启时：
+            → 扫描 EVENT_PUBLICATION 中 COMPLETION_DATE = null 的记录
+            → 反序列化事件 → 重新发布 → 监听器再次消费
+```
+
+**保证事件重放的三个必要条件**：
+
+| 条件 | 配置 | 作用 |
+|------|------|------|
+| 事件持久化 | `spring-modulith-starter-jdbc` + `spring.modulith.events.jdbc.schema-initialization.enabled=true` | 事件写入数据库，不丢失 |
+| 重启重放 | `spring.modulith.events.republish-outstanding-events-on-restart=true` | 启动时扫描未完成事件并重新发布 |
+| 数据库持久化 | 使用持久化数据库（非内存数据库） | 重启后数据仍然存在 |
 
 ---
 
