@@ -43,29 +43,23 @@ public class EventController {
         return Map.of("count", count != null ? count : 0);
     }
 
-    @GetMapping("/settlement/archive/count")
-    public Map<String, Object> getSettlementArchiveCount() {
-        Integer count = settlementJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM EVENT_PUBLICATION_ARCHIVE", Integer.class);
-        return Map.of("count", count != null ? count : 0);
+    @GetMapping("/debug/settlements-in-primary")
+    public Map<String, Object> debugSettlementsInPrimary() {
+        try {
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM settlements", Integer.class);
+            return Map.of("source", "primary", "count", count != null ? count : 0);
+        } catch (Exception e) {
+            return Map.of("source", "primary", "error", e.getMessage());
+        }
     }
 
-    @GetMapping("/settlement/archive")
-    public List<Map<String, Object>> getSettlementArchiveList() {
-        return settlementJdbcTemplate.queryForList(
-                "SELECT ID, EVENT_TYPE, LISTENER_ID, COMPLETION_DATE, PUBLICATION_DATE FROM EVENT_PUBLICATION_ARCHIVE");
-    }
-
-    @GetMapping("/settlement/publication/count")
-    public Map<String, Object> getSettlementPublicationCount() {
-        Integer count = settlementJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM EVENT_PUBLICATION", Integer.class);
-        return Map.of("count", count != null ? count : 0);
-    }
-
-    @GetMapping("/settlement/publication")
-    public List<Map<String, Object>> getSettlementPublicationList() {
-        return settlementJdbcTemplate.queryForList(
-                "SELECT ID, EVENT_TYPE, LISTENER_ID, COMPLETION_DATE, PUBLICATION_DATE FROM EVENT_PUBLICATION");
+    @GetMapping("/debug/settlements-in-settlement")
+    public Map<String, Object> debugSettlementsInSettlement() {
+        try {
+            Integer count = settlementJdbcTemplate.queryForObject("SELECT COUNT(*) FROM settlements", Integer.class);
+            return Map.of("source", "settlement", "count", count != null ? count : 0);
+        } catch (Exception e) {
+            return Map.of("source", "settlement", "error", e.getMessage());
+        }
     }
 }

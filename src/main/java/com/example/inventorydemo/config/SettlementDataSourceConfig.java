@@ -18,15 +18,8 @@ import java.util.Map;
 /**
  * 结算数据源配置（独立数据库）
  *
- * 结算模块使用独立的数据库，包含：
- * - settlements 表（结算业务数据）
- * - EVENT_PUBLICATION / EVENT_PUBLICATION_ARCHIVE 表（跨库事件）
- *
- * 主数据源由 Spring Boot 自动配置（application.properties 中的 spring.datasource.*），
- * 此处只配置结算数据源。
- *
- * 关键：@EnableJpaRepositories 的 basePackages 只包含 settlement 包，
- * Spring Boot 的默认扫描会排除 settlement 包（通过 PrimaryDataSourceConfig 配置）。
+ * 结算模块使用独立的数据库，只包含 settlements 表（结算业务数据）。
+ * 事件持久化由 Spring Modulith 在主库处理，结算模块通过 @ApplicationModuleListener 消费事件。
  */
 @Configuration
 @EnableTransactionManagement

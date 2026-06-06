@@ -3,6 +3,7 @@ package com.example.inventorydemo.settlement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -20,8 +21,8 @@ public class SettlementService {
         return settlementRepository.findAll();
     }
 
-    @Transactional("settlementTransactionManager")
     public Settlement createSettlement(Long orderId, SettlementType type, BigDecimal amount) {
+        log.info("createSettlement 被调用: orderId={}, type={}, amount={}", orderId, type, amount);
         if (settlementRepository.existsByOrderIdAndType(orderId, type)) {
             log.info("结算单已存在，跳过: orderId={}, type={}", orderId, type);
             return settlementRepository.findByOrderIdAndType(orderId, type).orElse(null);
@@ -32,6 +33,7 @@ public class SettlementService {
         settlement.setAmount(amount);
         settlement.setStatus(SettlementStatus.PENDING);
         settlement.setCreatedAt(LocalDateTime.now());
+        log.info("保存结算单: orderId={}, type={}, amount={}", orderId, type, amount);
         return settlementRepository.save(settlement);
     }
 
