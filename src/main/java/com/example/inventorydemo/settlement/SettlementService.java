@@ -1,10 +1,12 @@
 package com.example.inventorydemo.settlement;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,39 +14,42 @@ import java.util.List;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SettlementService {
 
-    private final SettlementRepository settlementRepository;
+    private final JdbcTemplate settlementJdbcTemplate;
+    private final TransactionTemplate settlementTxTemplate;
+
+    public SettlementService(@Qualifier("settlementJdbcTemplate") JdbcTemplate settlementJdbcTemplate,
+                             @Qualifier("settlementTransactionManager") PlatformTransactionManager settlementTransactionManager) {
+        this.settlementJdbcTemplate = settlementJdbcTemplate;
+        this.settlementTxTemplate = new TransactionTemplate(settlementTransactionManager);
+    }
 
     public List<Settlement> getAllSettlements() {
-        return settlementRepository.findAll();
+        return settlementJdbcTemplate.query(
+                "SELECT * FROM settlements ORDER BY id",
+                new BeanPropertyRowMapper<>(Settlement.class));
     }
 
-    public Settlement createSettlement(Long orderId, SettlementType type, BigDecimal amount) {
-        log.info("createSettlement 被调用: orderId={}, type={}, amount={}", orderId, type, amount);
-        if (settlementRepository.existsByOrderIdAndType(orderId, type)) {
-            log.info("结算单已存在，跳过: orderId={}, type={}", orderId, type);
-            return settlementRepository.findByOrderIdAndType(orderId, type).orElse(null);
-        }
-        Settlement settlement = new Settlement();
-        settlement.setOrderId(orderId);
-        settlement.setType(type);
-        settlement.setAmount(amount);
-        settlement.setStatus(SettlementStatus.PENDING);
-        settlement.setCreatedAt(LocalDateTime.now());
-        log.info("保存结算单: orderId={}, type={}, amount={}", orderId, type, amount);
-        return settlementRepository.save(settlement);
+    public void createSettlement(Long orderId, SettlementType type, BigDecimal amount) {
+        settlementTxTemplate.executeWithoutResult(status -> {
+            settlementJdbcTemplate.update(
+                    "INSERT INTO settlements (order_id, type, amount, status, created_at) VALUES (?, ?, ?, 'PENDING', NOW())",
+                    orderId, type.name(), amount);
+        });
     }
 
-    @Transactional("settlementTransactionManager")
     public Settlement settle(Long id) {
-        Settlement settlement = settlementRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Settlement not found"));
-        if (settlement.getStatus() != SettlementStatus.PENDING) {
-            throw new RuntimeException("Settlement is not in pending status");
-        }
-        settlement.setStatus(SettlementStatus.SETTLED);
-        return settlementRepository.save(settlement);
+        settlementTxTemplate.executeWithoutResult(status -> {
+            int updated = settlementJdbcTemplate.update(
+                    "UPDATE settlements SET status = 'SETTLED' WHERE id = ? AND status = 'PENDING'",
+                    id);
+            if (updated == 0) {
+                throw new RuntimeException("Settlement not found or not in pending status");
+            }
+        });
+        return settlementJdbcTemplate.queryForObject(
+                "SELECT * FROM settlements WHERE id = ?",
+                new BeanPropertyRowMapper<>(Settlement.class), id);
     }
 }
