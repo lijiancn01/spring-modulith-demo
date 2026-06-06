@@ -4,16 +4,18 @@ import com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent;
 import com.example.inventorydemo.sale.SaleOrderCompletedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
 /**
  * 结算模块事件监听器
  *
- * 跨库场景下，事件由 CrossDbEventConsumer 轮询 cross_db_events 表后
- * 通过 Spring 事件总线重新发布，此处 @EventListener 接收并处理。
+ * 跨库场景下，事件由 CrossDbEventPublisher 写入本库的 EVENT_PUBLICATION 表，
+ * CrossDbEventConsumer 定时触发 resubmit，事件重新发布到 Spring 事件总线，
+ * 此处 @ApplicationModuleListener 接收并消费。
  *
- * 必须幂等：因为跨库事件可能重复投递
+ * 消费成功后 Spring Modulith 自动归档到 EVENT_PUBLICATION_ARCHIVE（同库同事务）。
+ * 必须幂等：因为跨库事件可能重复投递。
  */
 @Slf4j
 @Component
@@ -23,7 +25,7 @@ public class SettlementEventListener {
     private final SettlementService settlementService;
     private final SettlementRepository settlementRepository;
 
-    @EventListener
+    @ApplicationModuleListener
     public void handlePurchaseCompleted(PurchaseOrderCompletedEvent event) {
         if (settlementRepository.existsByOrderIdAndType(event.orderId(), SettlementType.PAYABLE)) {
             log.info("采购结算单已存在，跳过: orderId={}", event.orderId());
@@ -32,7 +34,7 @@ public class SettlementEventListener {
         settlementService.createSettlement(event.orderId(), SettlementType.PAYABLE, event.totalAmount());
     }
 
-    @EventListener
+    @ApplicationModuleListener
     public void handleSaleCompleted(SaleOrderCompletedEvent event) {
         if (settlementRepository.existsByOrderIdAndType(event.orderId(), SettlementType.RECEIVABLE)) {
             log.info("销售结算单已存在，跳过: orderId={}", event.orderId());
