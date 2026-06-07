@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.modulith.Modulith;
 import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication(exclude = {
         DataSourceAutoConfiguration.class,
@@ -14,6 +15,7 @@ import org.springframework.retry.annotation.EnableRetry;
         JpaRepositoriesAutoConfiguration.class
 })
 @Modulith
+@EnableScheduling
 @EnableRetry
 public class InventoryDemoApplication {
     public static void main(String[] args) {

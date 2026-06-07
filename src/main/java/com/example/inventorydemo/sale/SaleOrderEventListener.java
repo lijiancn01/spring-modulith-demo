@@ -1,10 +1,14 @@
 package com.example.inventorydemo.sale;
 
+import com.example.inventorydemo.EntityNotFoundException;
+import com.example.inventorydemo.InvalidStatusException;
 import com.example.inventorydemo.settlement.SettlementCompletedEvent;
 import com.example.inventorydemo.settlement.SettlementType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.modulith.events.ApplicationModuleListener;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -15,6 +19,12 @@ public class SaleOrderEventListener {
     private final SaleOrderService saleOrderService;
 
     @ApplicationModuleListener
+    @Retryable(
+            retryFor = Exception.class,
+            noRetryFor = {EntityNotFoundException.class, InvalidStatusException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 1000)
+    )
     public void handleSettlementCompleted(SettlementCompletedEvent event) {
         if (event.type() != SettlementType.RECEIVABLE) {
             return;
