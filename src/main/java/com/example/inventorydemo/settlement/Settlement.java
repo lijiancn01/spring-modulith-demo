@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "settlements")
+@Table(name = "settlements", uniqueConstraints = @UniqueConstraint(columnNames = {"order_id", "type"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,4 +37,11 @@ public class Settlement {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }

@@ -2,54 +2,47 @@ package com.example.inventorydemo.settlement;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "app.messaging.type", havingValue = "spring", matchIfMissing = true)
 public class SettlementService {
 
+    private final SettlementRepository settlementRepository;
     private final JdbcTemplate settlementJdbcTemplate;
-    private final TransactionTemplate settlementTxTemplate;
     private final ApplicationEventPublisher eventPublisher;
 
-    public SettlementService(@Qualifier("settlementJdbcTemplate") JdbcTemplate settlementJdbcTemplate,
-                             @Qualifier("settlementTransactionManager") PlatformTransactionManager settlementTransactionManager,
+    public SettlementService(SettlementRepository settlementRepository,
+                             @Qualifier("settlementJdbcTemplate") JdbcTemplate settlementJdbcTemplate,
                              ApplicationEventPublisher eventPublisher) {
+        this.settlementRepository = settlementRepository;
         this.settlementJdbcTemplate = settlementJdbcTemplate;
-        this.settlementTxTemplate = new TransactionTemplate(settlementTransactionManager);
         this.eventPublisher = eventPublisher;
     }
 
+    @Transactional(value = "settlementTransactionManager", readOnly = true)
     public List<Settlement> getAllSettlements() {
-        return settlementJdbcTemplate.query(
-                "SELECT * FROM settlements ORDER BY id",
-                new BeanPropertyRowMapper<>(Settlement.class));
+        return settlementRepository.findAll();
     }
 
+    @Transactional("settlementTransactionManager")
     public Settlement settle(Long id) {
-        settlementTxTemplate.executeWithoutResult(status -> {
-            int updated = settlementJdbcTemplate.update(
-                    "UPDATE settlements SET status = 'SETTLED' WHERE id = ? AND status = 'PENDING'",
-                    id);
-            if (updated == 0) {
-                throw new RuntimeException("Settlement not found or not in pending status");
-            }
-        });
-        Settlement settlement = settlementJdbcTemplate.queryForObject(
-                "SELECT * FROM settlements WHERE id = ?",
-                new BeanPropertyRowMapper<>(Settlement.class), id);
+        Settlement settlement = settlementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Settlement not found"));
+        if (settlement.getStatus() != SettlementStatus.PENDING) {
+            throw new RuntimeException("Settlement not in pending status");
+        }
+        settlementJdbcTemplate.update(
+                "UPDATE settlements SET status = ? WHERE id = ?",
+                SettlementStatus.SETTLED.name(), id);
+        settlement.setStatus(SettlementStatus.SETTLED);
 
-        // 结算完成后，发布事件通知采购/销售模块回写结算量和结算金额
+        // 在结算事务内发布事件，由 @TransactionalEventListener 在事务提交后处理
         eventPublisher.publishEvent(new SettlementCompletedEvent(
                 settlement.getOrderId(),
                 settlement.getQuantity(),
@@ -57,7 +50,8 @@ public class SettlementService {
                 settlement.getType()
         ));
         log.info("结算完成事件已发布: orderId={}, quantity={}, amount={}, type={}",
-                settlement.getOrderId(), settlement.getQuantity(), settlement.getAmount(), settlement.getType());
+                settlement.getOrderId(), settlement.getQuantity(),
+                settlement.getAmount(), settlement.getType());
 
         return settlement;
     }

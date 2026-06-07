@@ -20,4 +20,7 @@ public class Inventory {
     
     @Column(nullable = false)
     private Integer quantity = 0;
+
+    @Version
+    private Long version;
 }
