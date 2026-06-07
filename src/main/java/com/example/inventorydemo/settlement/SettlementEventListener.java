@@ -1,25 +1,26 @@
 package com.example.inventorydemo.settlement;
 
+import com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent;
+import com.example.inventorydemo.sale.SaleOrderCompletedEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.modulith.events.ApplicationModuleListener;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.math.BigDecimal;
-import java.util.Map;
-
 /**
- * 结算模块事件监听器
+ * 结算模块事件监听器（Spring 事件模式）
  *
- * 通过 Kafka 消费跨数据库事件。
- * 采购/销售模块在另一个数据库，事件通过 Spring Modulith 外化到 Kafka，
- * 结算模块从 Kafka 消费事件并写入结算库。
+ * 通过 Spring Modulith 监听同 JVM 内的采购/销售完结事件，
+ * 写入结算库（跨数据库）。失败时自动重试。
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.messaging.type", havingValue = "spring", matchIfMissing = true)
 public class SettlementEventListener {
 
     private final JdbcTemplate settlementJdbcTemplate;
@@ -32,27 +33,27 @@ public class SettlementEventListener {
         this.settlementTxTemplate = new TransactionTemplate(settlementTransactionManager);
     }
 
-    @KafkaListener(topics = "purchase-order-completed", groupId = "settlement-group")
-    public void handlePurchaseCompleted(Map<String, Object> event) {
-        Long orderId = ((Number) event.get("orderId")).longValue();
-        BigDecimal totalAmount = new BigDecimal(event.get("totalAmount").toString());
-        log.info("结算模块收到采购完结事件（Kafka）: orderId={}, amount={}", orderId, totalAmount);
+    @ApplicationModuleListener
+    @Retryable(retryFor = Exception.class, maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000))
+    public void handlePurchaseCompleted(PurchaseOrderCompletedEvent event) {
+        log.info("结算模块收到采购完结事件: orderId={}, quantity={}, amount={}",
+                event.orderId(), event.quantity(), event.totalAmount());
         settlementTxTemplate.executeWithoutResult(status -> {
             settlementJdbcTemplate.update(
-                    "INSERT INTO settlements (order_id, type, amount, status, created_at) VALUES (?, ?, ?, 'PENDING', NOW())",
-                    orderId, "PAYABLE", totalAmount);
+                    "INSERT INTO settlements (order_id, type, quantity, amount, status, created_at) VALUES (?, ?, ?, ?, 'PENDING', NOW())",
+                    event.orderId(), "PAYABLE", event.quantity(), event.totalAmount());
         });
     }
 
-    @KafkaListener(topics = "sale-order-completed", groupId = "settlement-group")
-    public void handleSaleCompleted(Map<String, Object> event) {
-        Long orderId = ((Number) event.get("orderId")).longValue();
-        BigDecimal totalAmount = new BigDecimal(event.get("totalAmount").toString());
-        log.info("结算模块收到销售完结事件（Kafka）: orderId={}, amount={}", orderId, totalAmount);
+    @ApplicationModuleListener
+    @Retryable(retryFor = Exception.class, maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000))
+    public void handleSaleCompleted(SaleOrderCompletedEvent event) {
+        log.info("结算模块收到销售完结事件: orderId={}, quantity={}, amount={}",
+                event.orderId(), event.quantity(), event.totalAmount());
         settlementTxTemplate.executeWithoutResult(status -> {
             settlementJdbcTemplate.update(
-                    "INSERT INTO settlements (order_id, type, amount, status, created_at) VALUES (?, ?, ?, 'PENDING', NOW())",
-                    orderId, "RECEIVABLE", totalAmount);
+                    "INSERT INTO settlements (order_id, type, quantity, amount, status, created_at) VALUES (?, ?, ?, ?, 'PENDING', NOW())",
+                    event.orderId(), "RECEIVABLE", event.quantity(), event.totalAmount());
         });
     }
 }
