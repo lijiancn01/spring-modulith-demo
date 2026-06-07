@@ -1,9 +1,10 @@
 package com.example.inventorydemo.settlement;
 
+import com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent;
+import com.example.inventorydemo.sale.SaleOrderCompletedEvent;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,23 +12,47 @@ import java.util.List;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class SettlementService {
 
     private final SettlementRepository settlementRepository;
-    private final JdbcTemplate settlementJdbcTemplate;
     private final ApplicationEventPublisher eventPublisher;
-
-    public SettlementService(SettlementRepository settlementRepository,
-                             @Qualifier("settlementJdbcTemplate") JdbcTemplate settlementJdbcTemplate,
-                             ApplicationEventPublisher eventPublisher) {
-        this.settlementRepository = settlementRepository;
-        this.settlementJdbcTemplate = settlementJdbcTemplate;
-        this.eventPublisher = eventPublisher;
-    }
 
     @Transactional(value = "settlementTransactionManager", readOnly = true)
     public List<Settlement> getAllSettlements() {
         return settlementRepository.findAll();
+    }
+
+    @Transactional("settlementTransactionManager")
+    public void createFromPurchase(PurchaseOrderCompletedEvent event) {
+        if (settlementRepository.existsByOrderIdAndType(event.orderId(), SettlementType.PAYABLE)) {
+            log.info("结算记录已存在，跳过: orderId={}, type=PAYABLE", event.orderId());
+            return;
+        }
+        Settlement settlement = new Settlement();
+        settlement.setOrderId(event.orderId());
+        settlement.setType(SettlementType.PAYABLE);
+        settlement.setQuantity(event.quantity());
+        settlement.setAmount(event.totalAmount());
+        settlement.setStatus(SettlementStatus.PENDING);
+        settlementRepository.save(settlement);
+        log.info("采购结算记录已保存: id={}, orderId={}", settlement.getId(), settlement.getOrderId());
+    }
+
+    @Transactional("settlementTransactionManager")
+    public void createFromSale(SaleOrderCompletedEvent event) {
+        if (settlementRepository.existsByOrderIdAndType(event.orderId(), SettlementType.RECEIVABLE)) {
+            log.info("结算记录已存在，跳过: orderId={}, type=RECEIVABLE", event.orderId());
+            return;
+        }
+        Settlement settlement = new Settlement();
+        settlement.setOrderId(event.orderId());
+        settlement.setType(SettlementType.RECEIVABLE);
+        settlement.setQuantity(event.quantity());
+        settlement.setAmount(event.totalAmount());
+        settlement.setStatus(SettlementStatus.PENDING);
+        settlementRepository.save(settlement);
+        log.info("销售结算记录已保存: id={}, orderId={}", settlement.getId(), settlement.getOrderId());
     }
 
     @Transactional("settlementTransactionManager")
@@ -37,12 +62,8 @@ public class SettlementService {
         if (settlement.getStatus() != SettlementStatus.PENDING) {
             throw new RuntimeException("Settlement not in pending status");
         }
-        settlementJdbcTemplate.update(
-                "UPDATE settlements SET status = ? WHERE id = ?",
-                SettlementStatus.SETTLED.name(), id);
         settlement.setStatus(SettlementStatus.SETTLED);
 
-        // 在结算事务内发布事件，由 @TransactionalEventListener 在事务提交后处理
         eventPublisher.publishEvent(new SettlementCompletedEvent(
                 settlement.getOrderId(),
                 settlement.getQuantity(),

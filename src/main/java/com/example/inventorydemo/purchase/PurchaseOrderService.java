@@ -1,9 +1,11 @@
 package com.example.inventorydemo.purchase;
 
-import com.example.inventorydemo.purchase.PurchaseOrderCompletedEvent;
+import com.example.inventorydemo.settlement.SettlementCompletedEvent;
+import com.example.inventorydemo.settlement.SettlementType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -62,5 +64,20 @@ public class PurchaseOrderService {
         }
         order.setStatus(PurchaseOrderStatus.CANCELLED);
         return purchaseOrderRepository.save(order);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applySettlement(SettlementCompletedEvent event) {
+        if (event.type() != SettlementType.PAYABLE) {
+            return;
+        }
+        PurchaseOrder order = purchaseOrderRepository.findById(event.orderId())
+                .orElseThrow(() -> new RuntimeException("Purchase order not found: " + event.orderId()));
+        if (order.getSettledQuantity() > 0) {
+            return;
+        }
+        order.setSettledQuantity(event.quantity());
+        order.setSettledAmount(event.amount());
+        purchaseOrderRepository.save(order);
     }
 }
