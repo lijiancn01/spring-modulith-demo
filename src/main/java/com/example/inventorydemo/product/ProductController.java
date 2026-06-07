@@ -1,5 +1,6 @@
 package com.example.inventorydemo.product;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,12 +26,22 @@ public class ProductController {
     }
 
     @PostMapping
-    public Product createProduct(@RequestBody Product product) {
+    public Product createProduct(@Valid @RequestBody CreateProductRequest request) {
+        Product product = new Product();
+        product.setCode(request.code());
+        product.setName(request.name());
+        product.setDescription(request.description());
+        product.setPrice(request.price());
         return productService.createProduct(product);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
+    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @Valid @RequestBody CreateProductRequest request) {
+        Product product = new Product();
+        product.setCode(request.code());
+        product.setName(request.name());
+        product.setDescription(request.description());
+        product.setPrice(request.price());
         return ResponseEntity.ok(productService.updateProduct(id, product));
     }
 

@@ -4,7 +4,7 @@ import com.example.inventorydemo.settlement.SettlementCompletedEvent;
 import com.example.inventorydemo.settlement.SettlementType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -14,7 +14,7 @@ public class SaleOrderEventListener {
 
     private final SaleOrderService saleOrderService;
 
-    @EventListener
+    @ApplicationModuleListener
     public void handleSettlementCompleted(SettlementCompletedEvent event) {
         if (event.type() != SettlementType.RECEIVABLE) {
             return;

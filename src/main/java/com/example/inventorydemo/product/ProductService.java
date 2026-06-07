@@ -1,5 +1,6 @@
 package com.example.inventorydemo.product;
 
+import com.example.inventorydemo.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +33,7 @@ public class ProductService {
     @Transactional
     public Product updateProduct(Long id, Product productDetails) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new EntityNotFoundException("商品不存在: " + id));
         product.setCode(productDetails.getCode());
         product.setName(productDetails.getName());
         product.setDescription(productDetails.getDescription());

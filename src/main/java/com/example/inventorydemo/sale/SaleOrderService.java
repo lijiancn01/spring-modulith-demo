@@ -1,8 +1,11 @@
 package com.example.inventorydemo.sale;
 
+import com.example.inventorydemo.EntityNotFoundException;
+import com.example.inventorydemo.InvalidStatusException;
 import com.example.inventorydemo.settlement.SettlementCompletedEvent;
 import com.example.inventorydemo.settlement.SettlementType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -14,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SaleOrderService {
@@ -36,7 +40,6 @@ public class SaleOrderService {
         order.setQuantity(quantity);
         order.setUnitPrice(unitPrice);
         order.setTotalAmount(unitPrice.multiply(BigDecimal.valueOf(quantity)));
-        order.setCreatedAt(LocalDateTime.now());
         order.setStatus(SaleOrderStatus.PENDING);
         return saleOrderRepository.save(order);
     }
@@ -44,9 +47,9 @@ public class SaleOrderService {
     @Transactional
     public SaleOrder completeSaleOrder(Long id) {
         SaleOrder order = saleOrderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Sale order not found"));
+                .orElseThrow(() -> new EntityNotFoundException("销售订单不存在: " + id));
         if (order.getStatus() != SaleOrderStatus.PENDING) {
-            throw new RuntimeException("Order is not in pending status");
+            throw new InvalidStatusException("销售订单状态不是待处理: " + id);
         }
         order.setStatus(SaleOrderStatus.COMPLETED);
         eventPublisher.publishEvent(new SaleOrderCompletedEvent(
@@ -58,9 +61,9 @@ public class SaleOrderService {
     @Transactional
     public SaleOrder cancelSaleOrder(Long id) {
         SaleOrder order = saleOrderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Sale order not found"));
+                .orElseThrow(() -> new EntityNotFoundException("销售订单不存在: " + id));
         if (order.getStatus() != SaleOrderStatus.PENDING) {
-            throw new RuntimeException("Order is not in pending status");
+            throw new InvalidStatusException("销售订单状态不是待处理: " + id);
         }
         order.setStatus(SaleOrderStatus.CANCELLED);
         return saleOrderRepository.save(order);
@@ -72,12 +75,14 @@ public class SaleOrderService {
             return;
         }
         SaleOrder order = saleOrderRepository.findById(event.orderId())
-                .orElseThrow(() -> new RuntimeException("Sale order not found: " + event.orderId()));
+                .orElseThrow(() -> new EntityNotFoundException("销售订单不存在: " + event.orderId()));
         if (order.getSettledQuantity() > 0) {
             return;
         }
         order.setSettledQuantity(event.quantity());
         order.setSettledAmount(event.amount());
         saleOrderRepository.save(order);
+        log.info("销售订单结算回写完成: orderId={}, settledQty={}, settledAmount={}",
+                order.getId(), order.getSettledQuantity(), order.getSettledAmount());
     }
 }

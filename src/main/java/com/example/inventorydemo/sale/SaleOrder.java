@@ -1,18 +1,21 @@
 package com.example.inventorydemo.sale;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "sale_orders")
-@Data
+@Table(name = "sale_orders", indexes = {
+        @Index(name = "idx_sale_product_id", columnList = "product_id"),
+        @Index(name = "idx_sale_status", columnList = "status")
+})
+@Getter
+@Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class SaleOrder {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,4 +48,14 @@ public class SaleOrder {
 
     @Column(name = "settled_amount")
     private BigDecimal settledAmount = BigDecimal.ZERO;
+
+    @Version
+    private Long version;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }

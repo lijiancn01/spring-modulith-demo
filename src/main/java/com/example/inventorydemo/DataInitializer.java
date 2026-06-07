@@ -2,11 +2,13 @@ package com.example.inventorydemo;
 
 import com.example.inventorydemo.product.Product;
 import com.example.inventorydemo.product.ProductRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
+@Slf4j
 @Component
 public class DataInitializer implements CommandLineRunner {
 
@@ -41,7 +43,7 @@ public class DataInitializer implements CommandLineRunner {
             product3.setPrice(new BigDecimal("6.99"));
             productRepository.save(product3);
 
-            System.out.println("示例商品数据已初始化！");
+            log.info("示例商品数据已初始化");
         }
     }
 }

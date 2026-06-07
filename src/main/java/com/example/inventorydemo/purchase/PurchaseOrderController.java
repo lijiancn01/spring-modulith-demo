@@ -1,12 +1,11 @@
 package com.example.inventorydemo.purchase;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/purchase-orders")
@@ -27,11 +26,8 @@ public class PurchaseOrderController {
     }
 
     @PostMapping
-    public PurchaseOrder createPurchaseOrder(@RequestBody Map<String, Object> request) {
-        Long productId = Long.valueOf(request.get("productId").toString());
-        int quantity = Integer.parseInt(request.get("quantity").toString());
-        BigDecimal unitPrice = new BigDecimal(request.get("unitPrice").toString());
-        return purchaseOrderService.createPurchaseOrder(productId, quantity, unitPrice);
+    public PurchaseOrder createPurchaseOrder(@Valid @RequestBody CreatePurchaseOrderRequest request) {
+        return purchaseOrderService.createPurchaseOrder(request.productId(), request.quantity(), request.unitPrice());
     }
 
     @PostMapping("/{id}/complete")

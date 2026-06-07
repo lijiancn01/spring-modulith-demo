@@ -1,18 +1,18 @@
 package com.example.inventorydemo.settlement;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "settlements", uniqueConstraints = @UniqueConstraint(columnNames = {"order_id", "type"}))
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class Settlement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,6 +37,9 @@ public class Settlement {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Version
+    private Long version;
 
     @PrePersist
     protected void onCreate() {
