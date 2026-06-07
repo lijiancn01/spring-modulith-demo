@@ -28,9 +28,6 @@ public class Settlement {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
-    private Integer quantity;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SettlementStatus status = SettlementStatus.PENDING;

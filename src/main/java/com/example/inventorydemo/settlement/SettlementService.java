@@ -2,7 +2,6 @@ package com.example.inventorydemo.settlement;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -19,14 +18,11 @@ public class SettlementService {
 
     private final JdbcTemplate settlementJdbcTemplate;
     private final TransactionTemplate settlementTxTemplate;
-    private final ApplicationEventPublisher eventPublisher;
 
     public SettlementService(@Qualifier("settlementJdbcTemplate") JdbcTemplate settlementJdbcTemplate,
-                             @Qualifier("settlementTransactionManager") PlatformTransactionManager settlementTransactionManager,
-                             ApplicationEventPublisher eventPublisher) {
+                             @Qualifier("settlementTransactionManager") PlatformTransactionManager settlementTransactionManager) {
         this.settlementJdbcTemplate = settlementJdbcTemplate;
         this.settlementTxTemplate = new TransactionTemplate(settlementTransactionManager);
-        this.eventPublisher = eventPublisher;
     }
 
     public List<Settlement> getAllSettlements() {
@@ -35,11 +31,11 @@ public class SettlementService {
                 new BeanPropertyRowMapper<>(Settlement.class));
     }
 
-    public void createSettlement(Long orderId, SettlementType type, BigDecimal amount, int quantity) {
+    public void createSettlement(Long orderId, SettlementType type, BigDecimal amount) {
         settlementTxTemplate.executeWithoutResult(status -> {
             settlementJdbcTemplate.update(
-                    "INSERT INTO settlements (order_id, type, quantity, amount, status, created_at) VALUES (?, ?, ?, ?, 'PENDING', NOW())",
-                    orderId, type.name(), quantity, amount);
+                    "INSERT INTO settlements (order_id, type, amount, status, created_at) VALUES (?, ?, ?, 'PENDING', NOW())",
+                    orderId, type.name(), amount);
         });
     }
 
@@ -52,20 +48,8 @@ public class SettlementService {
                 throw new RuntimeException("Settlement not found or not in pending status");
             }
         });
-        Settlement settlement = settlementJdbcTemplate.queryForObject(
+        return settlementJdbcTemplate.queryForObject(
                 "SELECT * FROM settlements WHERE id = ?",
                 new BeanPropertyRowMapper<>(Settlement.class), id);
-
-        // 结算完成后，发布事件通知采购/销售模块回写结算量和结算金额
-        eventPublisher.publishEvent(new SettlementCompletedEvent(
-                settlement.getOrderId(),
-                settlement.getQuantity(),
-                settlement.getAmount(),
-                settlement.getType()
-        ));
-        log.info("结算完成事件已发布: orderId={}, quantity={}, amount={}, type={}",
-                settlement.getOrderId(), settlement.getQuantity(), settlement.getAmount(), settlement.getType());
-
-        return settlement;
     }
 }
