@@ -1,0 +1,45 @@
+// 技能数据
+window.SG = window.SG || {};
+
+window.SG.SKILLS_DATA = {
+  // 武将技
+  jianxiong: { id:'jianxiong', name:'奸雄', type:'combat', spCost:30, power:90, range:'area', desc:'以奸雄之姿压制敌军，对敌方全体造成伤害' },
+  guohe: { id:'guohe', name:'鬼谋', type:'combat', spCost:25, power:70, range:'area', desc:'运筹帷幄，鬼神莫测，降低敌军士气' },
+  ganglie: { id:'ganglie', name:'刚烈', type:'combat', spCost:20, power:75, range:'single', desc:'以刚烈之气猛攻敌将' },
+  tuci: { id:'tuci', name:'突刺', type:'combat', spCost:15, power:60, range:'single', desc:'迅猛突刺敌将' },
+  shenjian: { id:'shenjian', name:'神箭', type:'combat', spCost:20, power:80, range:'single', desc:'百步穿杨，精准射杀敌将' },
+  xuanfengzhan: { id:'xuanfengzhan', name:'旋风斩', type:'combat', spCost:25, power:85, range:'area', desc:'旋风斩敌，对周围敌军造成伤害' },
+  xiaoyaojin: { id:'xiaoyaojin', name:'逍遥津', type:'combat', spCost:35, power:100, range:'area', desc:'威震逍遥津，大范围杀伤敌军' },
+  luoren: { id:'luoren', name:'裸衣', type:'combat', spCost:20, power:80, range:'single', desc:'裸衣力战，以命搏命' },
+  nuji: { id:'nuji', name:'怒击', type:'combat', spCost:15, power:65, range:'single', desc:'怒气爆发猛击敌将' },
+  yingzi: { id:'yingzi', name:'英姿', type:'combat', spCost:20, power:60, range:'self', desc:'英姿飒爽，恢复自身技力' },
+  tianguan: { id:'tianguan', name:'天妒', type:'combat', spCost:30, power:95, range:'single', desc:'天妒英才，对敌将造成毁灭打击' },
+  rende: { id:'rende', name:'仁德', type:'combat', spCost:20, power:50, range:'self', desc:'仁德广施，恢复己方兵力' },
+  jiyi: { id:'jiyi', name:'结义', type:'combat', spCost:25, power:70, range:'self', desc:'桃园结义，提升全军士气' },
+  wusheng: { id:'wusheng', name:'武圣', type:'combat', spCost:35, power:100, range:'single', desc:'武圣降临，斩杀敌将' },
+  qinglongyanyue: { id:'qinglongyanyue', name:'青龙偃月', type:'combat', spCost:40, power:120, range:'single', desc:'青龙偃月刀横扫千军' },
+  paoxiao: { id:'paoxiao', name:'咆哮', type:'combat', spCost:25, power:85, range:'area', desc:'猛将咆哮，震慑敌军' },
+  longdan: { id:'longdan', name:'龙胆', type:'combat', spCost:30, power:95, range:'single', desc:'龙胆虎威，一骑当千' },
+  guanxing: { id:'guanxing', name:'观星', type:'combat', spCost:25, power:70, range:'area', desc:'夜观天象，借天势攻敌' },
+  huoshao: { id:'huoshao', name:'火烧', type:'combat', spCost:35, power:100, range:'area', desc:'火烧连营，大范围灼烧敌军' },
+  fenghuo: { id:'fenghuo', name:'凤火', type:'combat', spCost:30, power:90, range:'area', desc:'凤火燎原，焚尽敌军' },
+  tieqi: { id:'tieqi', name:'铁骑', type:'combat', spCost:25, power:80, range:'area', desc:'铁骑冲锋，横扫敌阵' },
+  keji: { id:'keji', name:'克己', type:'combat', spCost:15, power:50, range:'self', desc:'克己复礼，恢复技力' },
+  qixi: { id:'qixi', name:'奇袭', type:'combat', spCost:25, power:85, range:'single', desc:'出奇不意袭击敌将' },
+  kurou: { id:'kurou', name:'苦肉', type:'combat', spCost:20, power:75, range:'single', desc:'苦肉计，以伤换伤' },
+  buxiu: { id:'buxiu', name:'不屈', type:'combat', spCost:15, power:60, range:'self', desc:'不屈意志，恢复兵力' },
+  zhiheng: { id:'zhiheng', name:'制衡', type:'combat', spCost:25, power:70, range:'area', desc:'制衡天下，削弱敌军' },
+  wushuang: { id:'wushuang', name:'无双', type:'combat', spCost:40, power:130, range:'area', desc:'天下无双，横扫千军' },
+  feijiang: { id:'feijiang', name:'飞将', type:'combat', spCost:30, power:90, range:'single', desc:'飞将突袭，直取敌将' },
+  lijian: { id:'lijian', name:'离间', type:'combat', spCost:25, power:60, range:'area', desc:'离间敌军，降低敌方士气' },
+  mengjin: { id:'mengjin', name:'猛进', type:'combat', spCost:20, power:70, range:'area', desc:'猛力突进，冲击敌阵' },
+  leiji: { id:'leiji', name:'雷击', type:'combat', spCost:35, power:100, range:'area', desc:'天雷降世，轰击敌军' },
+  xiang: { id:'xiang', name:'象阵', type:'combat', spCost:25, power:80, range:'area', desc:'驱象冲阵，践踏敌军' },
+  guli: { id:'guli', name:'孤立', type:'combat', spCost:20, power:70, range:'single', desc:'孤军奋战，猛攻敌将' },
+  tuntian: { id:'tuntian', name:'屯田', type:'combat', spCost:15, power:50, range:'self', desc:'屯田蓄力，恢复兵力' },
+
+  // 军师技
+  jimou: { id:'jimou', name:'计谋', type:'advisor', spCost:0, power:0, range:'self', desc:'战前计谋，提升全军士气10点' },
+  guwu: { id:'guwu', name:'鼓舞', type:'advisor', spCost:0, power:0, range:'self', desc:'战前鼓舞，提升全军攻击力15%' },
+  yaohuo: { id:'yaohuo', name:'妖惑', type:'advisor', spCost:0, power:0, range:'enemy', desc:'战前妖惑，降低敌军士气10点' },
+};
