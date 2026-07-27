@@ -310,20 +310,26 @@ window.SG = window.SG || {};
         defenderIdx: defenderIdx,
         attacker: atkHero,
         defender: defHero,
-        turn: 0
+        turn: 0,
+        mode: 'classic'  // 标记使用新单挑系统
       };
 
       var atkName = atkData ? atkData.name : atkHero.heroId;
       var defName = defData ? defData.name : defHero.heroId;
       this._addLog(atkName + ' 向 ' + defName + ' 发起单挑！');
 
+      // 初始化DuelSystem
+      var playerFaction = GS.playerFaction;
+      var attackerIsPlayer = this.state.attacker.faction === playerFaction;
+      window.SG.DuelSystem.init(atkHero.heroId, defHero.heroId, attackerIsPlayer);
+
       return this.state.duelState;
     },
 
-    // 单挑tick
+    // 单挑tick（兼容旧调用）
     duelStep: function() {
       if (!this.state || !this.state.duelState) return [];
-
+      // 旧版简单单挑逻辑（保留作为兜底）
       var events = [];
       var duel = this.state.duelState;
       duel.turn++;
@@ -336,7 +342,7 @@ window.SG = window.SG || {};
 
       // 攻方攻击
       var atkForce = atkData ? atkData.force : 50;
-      var atkDmg = Math.floor(atkForce * 0.8 * randRange(0.8, 1.2));
+      var atkDmg = Math.floor(atkForce * 0.8 * (0.8 + Math.random() * 0.4));
       duel.defender.hp = Math.max(0, duel.defender.hp - atkDmg);
       events.push({ type: 'duelAttack', attacker: duel.attacker.heroId, attackerName: atkName, defender: duel.defender.heroId, defenderName: defName, damage: atkDmg });
       this._addLog(atkName + ' 单挑攻击 ' + defName + '，造成 ' + atkDmg + ' 点伤害');
@@ -344,7 +350,7 @@ window.SG = window.SG || {};
       // 守方反击（如果还活着）
       if (duel.defender.hp > 0) {
         var defForce = defData ? defData.force : 50;
-        var defDmg = Math.floor(defForce * 0.8 * randRange(0.8, 1.2));
+        var defDmg = Math.floor(defForce * 0.8 * (0.8 + Math.random() * 0.4));
         duel.attacker.hp = Math.max(0, duel.attacker.hp - defDmg);
         events.push({ type: 'duelAttack', attacker: duel.defender.heroId, attackerName: defName, defender: duel.attacker.heroId, defenderName: atkName, damage: defDmg });
         this._addLog(defName + ' 反击 ' + atkName + '，造成 ' + defDmg + ' 点伤害');
@@ -360,6 +366,44 @@ window.SG = window.SG || {};
       }
 
       return events;
+    },
+
+    // 应用单挑结果到战斗状态
+    applyDuelResult: function(duelResult) {
+      if (!duelResult || !this.state || !this.state.duelState) return;
+
+      var duel = this.state.duelState;
+      var winnerSide = duelResult.winner;
+      var loserSide = duelResult.loser;
+
+      // 更新战斗状态中的武将HP
+      if (duel.attacker) {
+        duel.attacker.hp = duelResult.attacker.hp;
+      }
+      if (duel.defender) {
+        duel.defender.hp = duelResult.defender.hp;
+      }
+
+      // 单挑败方：HP归零（视为退出战斗）
+      if (loserSide === 'attacker' && duel.attacker) {
+        duel.attacker.hp = 0;
+      }
+      if (loserSide === 'defender' && duel.defender) {
+        duel.defender.hp = 0;
+      }
+
+      // 清理单挑状态
+      this.state.duelState = null;
+      this.state.phase = 'fighting';
+
+      // 添加战斗日志
+      var winnerName = winnerSide === 'attacker' ?
+        (window.SG.GameState.heroes[duel.attacker.heroId] || {}).name :
+        (window.SG.GameState.heroes[duel.defender.heroId] || {}).name;
+      var loserName = loserSide === 'attacker' ?
+        (window.SG.GameState.heroes[duel.attacker.heroId] || {}).name :
+        (window.SG.GameState.heroes[duel.defender.heroId] || {}).name;
+      this._addLog(winnerName + ' 在单挑中击败了 ' + loserName + '！');
     },
 
     // 检查战斗是否结束

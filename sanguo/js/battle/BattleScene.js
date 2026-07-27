@@ -861,7 +861,132 @@ window.SG = window.SG || {};
       } else if (btn.action === 'duel') {
         var duelState = window.SG.BattleEngine.startDuel(btn.data.atkIdx, btn.data.defIdx);
         this._selectedDefender = -1;
+        // 打开单挑UI面板
+        if (duelState && window.SG.DuelUI && window.SG.DuelSystem) {
+          var duelSysState = window.SG.DuelSystem.getState();
+          if (duelSysState) {
+            window.SG.DuelUI.open(duelSysState, {
+              onAction: (function(scene) {
+                return function(action, skillId) {
+                  scene._handleDuelAction(action, skillId);
+                };
+              })(this),
+              onComplete: (function(scene) {
+                return function() {
+                  scene._handleDuelComplete();
+                };
+              })(this)
+            });
+          }
+        }
       }
+    },
+
+    // 处理单挑玩家行动
+    _handleDuelAction: function(action, skillId) {
+      var duelState = window.SG.DuelSystem.getState();
+      if (!duelState) return;
+
+      var currentActor = duelState.currentActor;
+      var hero = duelState[currentActor];
+
+      // 玩家选择行动
+      var ok = window.SG.DuelSystem.chooseAction(currentActor, action, skillId);
+      if (!ok) {
+        return;
+      }
+
+      // 如果是撤退，立即结束
+      if (action === 'retreat') {
+        var result = window.SG.DuelSystem.getResult();
+        if (result) {
+          window.SG.DuelUI.close();
+          window.SG.BattleEngine.applyDuelResult(result);
+          if (window.SG.UIManager && window.SG.UIManager.showToast) {
+            window.SG.UIManager.showToast('单挑结束：' + (result.winner === 'attacker' ? duelState.attacker.data.name : duelState.defender.data.name) + ' 获胜！');
+          }
+        }
+        return;
+      }
+
+      // 执行这一轮的所有行动
+      window.SG.DuelSystem.state.phase = 'acting';
+      var events = window.SG.DuelSystem.executeTurn();
+
+      // 重新获取状态
+      var newState = window.SG.DuelSystem.getState();
+
+      // 检查单挑是否结束
+      if (newState.phase === 'ended') {
+        var finalResult = window.SG.DuelSystem.getResult();
+        // 显示最后一个事件
+        if (events && events.length > 0) {
+          window.SG.DuelUI.refresh(newState, events[events.length - 1]);
+        }
+        setTimeout(function() {
+          var r = window.SG.DuelSystem.getResult();
+          window.SG.DuelUI.refresh(newState, null);
+          setTimeout(function() {
+            window.SG.DuelUI.close();
+            window.SG.BattleEngine.applyDuelResult(r);
+            if (window.SG.UIManager && window.SG.UIManager.showToast) {
+              window.SG.UIManager.showToast('单挑结束：' + (r.winner === 'attacker' ? duelState.attacker.data.name : duelState.defender.data.name) + ' 获胜！');
+            }
+          }, 1500);
+        }, 1200);
+        return;
+      }
+
+      // 显示最后一个事件
+      var lastEvt = events && events.length > 0 ? events[events.length - 1] : null;
+      window.SG.DuelUI.refresh(newState, lastEvt);
+
+      // 如果下一回合还是AI行动，自动执行
+      if (newState.phase === 'choosing' && newState.currentActor) {
+        var nextHero = newState[newState.currentActor];
+        if (!nextHero.isPlayer) {
+          window.SG.DuelUI._pendingAI = true;
+          setTimeout((function(state) {
+            return function() {
+              // AI自动选择行动
+              window.SG.DuelSystem._aiChooseAction(state.currentActor);
+              // 执行回合
+              window.SG.DuelSystem.state.phase = 'acting';
+              var aiEvents = window.SG.DuelSystem.executeTurn();
+              var newState2 = window.SG.DuelSystem.getState();
+              if (newState2.phase === 'ended') {
+                var aiLastEvt = aiEvents && aiEvents.length > 0 ? aiEvents[aiEvents.length - 1] : null;
+                window.SG.DuelUI.refresh(newState2, aiLastEvt);
+                setTimeout(function() {
+                  var r2 = window.SG.DuelSystem.getResult();
+                  window.SG.DuelUI.close();
+                  window.SG.BattleEngine.applyDuelResult(r2);
+                  if (window.SG.UIManager && window.SG.UIManager.showToast) {
+                    window.SG.UIManager.showToast('单挑结束');
+                  }
+                }, 1500);
+                return;
+              }
+              var evt = aiEvents && aiEvents.length > 0 ? aiEvents[aiEvents.length - 1] : null;
+              window.SG.DuelUI.refresh(newState2, evt);
+              window.SG.DuelUI._pendingAI = false;
+              // 检查下一回合是否又是AI
+              if (newState2.phase === 'choosing' && newState2.currentActor) {
+                var nxH = newState2[newState2.currentActor];
+                if (!nxH.isPlayer) {
+                  window.SG.DuelUI._pendingAI = true;
+                  setTimeout(arguments.callee, 1000);
+                }
+              }
+            };
+          })(newState), 1000);
+        }
+      }
+    },
+
+    // 单挑完成回调
+    _handleDuelComplete: function() {
+      // 已经在handleDuelAction里处理了applyDuelResult
     },
 
     // ===== 战斗tick =====

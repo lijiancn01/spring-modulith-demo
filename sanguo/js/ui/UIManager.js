@@ -1251,6 +1251,20 @@ window.SG = window.SG || {};
         '<div class="sg-stat-track"><div class="sg-stat-fill" style="width:' + percent + '%;background:' + color + '"></div></div>' +
         '<span class="sg-stat-value">' + value + '</span>' +
         '</div>';
+    },
+
+    // 显示轻量级提示
+    showToast: function(msg, duration) {
+      var toast = document.createElement('div');
+      toast.className = 'sg-toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(function() {
+        toast.classList.add('sg-toast-out');
+        setTimeout(function() {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 300);
+      }, duration || 2500);
     }
   };
 
