@@ -291,20 +291,39 @@ window.SG = window.SG || {};
         ctx.stroke();
       }
 
-      // 武将圆形头像
-      ctx.fillStyle = color;
-      ctx.globalAlpha = isDead ? 0.35 : 0.8;
-      ctx.beginPath();
-      ctx.arc(x, y, 20, 0, Math.PI * 2);
-      ctx.fill();
+      // 武将头像（水墨风Canvas头像）
+      if (window.SG.HeroPortrait && heroData) {
+        var portraitCanvas = window.SG.HeroPortrait.generate(heroData, 40);
+        ctx.globalAlpha = isDead ? 0.35 : 1;
+        // 圆形裁剪
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(portraitCanvas, x - 20, y - 20, 40, 40);
+      } else {
+        // 降级：纯色圆
+        ctx.fillStyle = color;
+        ctx.globalAlpha = isDead ? 0.35 : 0.8;
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-      // 水墨描边
+      ctx.restore();
+
+      // 水墨描边（在clip外绘制）
+      ctx.save();
+      if (isDead) ctx.globalAlpha = 0.2;
       ctx.strokeStyle = '#333';
       ctx.globalAlpha = isDead ? 0.2 : 0.5;
       ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(x, y, 20, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.restore();
 
       // 武将名字
+      ctx.save();
       ctx.globalAlpha = isDead ? 0.3 : 0.9;
       ctx.fillStyle = '#2a1a0a';
       ctx.font = 'bold 12px "KaiTi", "STKaiti", serif';

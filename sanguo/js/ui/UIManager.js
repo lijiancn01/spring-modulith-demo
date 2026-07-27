@@ -216,9 +216,15 @@ window.SG = window.SG || {};
       for (var i = 0; i < city.heroes.length; i++) {
         var hero = gs.heroes[city.heroes[i]];
         if (!hero) continue;
+        // 武将头像
+        var portraitImg = '';
+        if (window.SG.HeroPortrait) {
+          portraitImg = '<img class="sg-hero-portrait" src="' + window.SG.HeroPortrait.toDataURL(hero, 36) + '" alt="' + hero.name + '">';
+        }
         var card = document.createElement('div');
         card.className = 'sg-hero-card';
-        card.innerHTML = '<span class="sg-hero-name">' + hero.name + '</span>' +
+        card.innerHTML = portraitImg +
+          '<span class="sg-hero-name">' + hero.name + '</span>' +
           '<span class="sg-hero-status">' + this._heroStatusText(hero) + '</span>' +
           '<span class="sg-hero-troops">兵' + hero.troops + '</span>';
         // 点击显示武将详情
@@ -407,6 +413,16 @@ window.SG = window.SG || {};
 
       var content = header.querySelector('.sg-panel-content');
       if (!content) { content = document.createElement('div'); content.className = 'sg-panel-content'; header.appendChild(content); }
+
+      // 武将头像
+      var portraitDiv = document.createElement('div');
+      portraitDiv.style.textAlign = 'center';
+      portraitDiv.style.marginBottom = '10px';
+      if (window.SG.HeroPortrait) {
+        var dataURL = window.SG.HeroPortrait.toDataURL(hero, 80);
+        portraitDiv.innerHTML = '<img src="' + dataURL + '" alt="' + hero.name + '" style="width:80px;height:80px;border-radius:50%;border:2px solid ' + factionColor + ';">';
+      }
+      content.appendChild(portraitDiv);
 
       // 基本信息
       var infoDiv = document.createElement('div');

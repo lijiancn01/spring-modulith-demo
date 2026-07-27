@@ -135,6 +135,13 @@ window.SG = window.SG || {};
       else if (hero.status === 'attack_buffed') statusText = '蓄力';
       else if (hero.status === 'attack_debuffed') statusText = '虚弱';
 
+      // 武将头像
+      var portraitHTML = '';
+      if (window.SG.HeroPortrait && hero.data) {
+        var dataURL = window.SG.HeroPortrait.toDataURL(hero.data, 80);
+        portraitHTML = '<div class="sg-duel-portrait"><img src="' + dataURL + '" alt="' + hero.data.name + '"></div>';
+      }
+
       var skillList = '';
       if (hero.data && hero.data.skills && hero.data.skills.length > 0) {
         skillList = '<div class="sg-duel-skills">';
@@ -152,6 +159,7 @@ window.SG = window.SG || {};
 
       return '' +
         '<div class="sg-duel-hero-card ' + (isCurrent ? 'sg-duel-current' : '') + ' ' + (isDead ? 'sg-duel-dead' : '') + '">' +
+          portraitHTML +
           '<div class="sg-duel-hero-name">' + hero.data.name +
             (statusText ? '<span class="sg-duel-status">' + statusText + '</span>' : '') +
           '</div>' +

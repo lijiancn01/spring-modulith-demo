@@ -256,6 +256,18 @@ html, body {
   margin: 6px 0;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sg-hero-portrait {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid #8a7030;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .sg-hero-card:hover {
@@ -980,6 +992,20 @@ html, body {
 .sg-duel-hero-card.sg-duel-dead {
   opacity: 0.4;
   filter: grayscale(0.8);
+}
+
+.sg-duel-portrait {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.sg-duel-portrait img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid #8a7030;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+  object-fit: cover;
 }
 
 .sg-duel-hero-name {
