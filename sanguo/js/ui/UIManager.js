@@ -92,6 +92,11 @@ window.SG = window.SG || {};
       var btnArea = document.createElement('span');
       btnArea.className = 'sg-topbar-btns';
 
+      // 招募武将按钮
+      btnArea.appendChild(this._createButton('招募武将', function() {
+        UIManager.showRecruitHeroDialog();
+      }, 'sg-btn'));
+
       // 结束回合按钮
       btnArea.appendChild(this._createButton('结束回合', function() {
         UIManager._onEndTurn();
@@ -900,6 +905,342 @@ window.SG = window.SG || {};
       btn.textContent = text;
       btn.onclick = onclick;
       return btn;
+    },
+
+    // ===== 招募武将对话框 =====
+    showRecruitHeroDialog: function() {
+      var gs = GS();
+      var playerCities = gs.getFactionCities(gs.playerFaction);
+      if (playerCities.length === 0) {
+        this.showMessage('没有己方城市，无法招募');
+        return;
+      }
+
+      var content = '<div class="sg-recruit-hero">';
+      content += '<div class="sg-form-row"><label>武将姓名：</label><input type="text" id="rh_name" placeholder="请输入武将姓名" class="sg-form-input"></div>';
+
+      // 兵种选择
+      content += '<div class="sg-form-row"><label>兵种：</label>';
+      content += '<select id="rh_troop" class="sg-form-select">';
+      content += '<option value="infantry">步兵</option>';
+      content += '<option value="cavalry">骑兵</option>';
+      content += '<option value="archer">弓兵</option>';
+      content += '</select></div>';
+
+      // 驻扎城市
+      content += '<div class="sg-form-row"><label>驻扎城市：</label>';
+      content += '<select id="rh_city" class="sg-form-select">';
+      for (var i = 0; i < playerCities.length; i++) {
+        content += '<option value="' + playerCities[i].id + '">' + playerCities[i].name + '</option>';
+      }
+      content += '</select></div>';
+
+      // 属性分配
+      content += '<div class="sg-section-title">属性分配（总点数：250）</div>';
+      content += '<div class="sg-attr-total">剩余点数：<span id="rh_remain">250</span></div>';
+
+      var attrs = [
+        { key: 'force', label: '武力', val: 50 },
+        { key: 'intellect', label: '智力', val: 50 },
+        { key: 'politics', label: '政治', val: 50 },
+        { key: 'command', label: '统率', val: 50 },
+        { key: 'charisma', label: '魅力', val: 50 }
+      ];
+
+      for (var a = 0; a < attrs.length; a++) {
+        content += '<div class="sg-attr-row" data-attr="' + attrs[a].key + '">' +
+          '<span class="sg-attr-label">' + attrs[a].label + '</span>' +
+          '<button class="sg-attr-btn sg-attr-minus" data-attr="' + attrs[a].key + '">-</button>' +
+          '<span class="sg-attr-val" id="rh_val_' + attrs[a].key + '">' + attrs[a].val + '</span>' +
+          '<button class="sg-attr-btn sg-attr-plus" data-attr="' + attrs[a].key + '">+</button>' +
+          '</div>';
+      }
+
+      // 技能选择
+      content += '<div class="sg-section-title">选择武将技（最多2个）</div>';
+      content += '<div class="sg-skill-select" id="rh_skills">';
+      var selectable = window.SG.getSelectableSkills ? window.SG.getSelectableSkills() : [];
+      for (var s = 0; s < selectable.length; s++) {
+        var sk = selectable[s];
+        content += '<label class="sg-skill-option"><input type="checkbox" value="' + sk.id + '" data-power="' + sk.power + '"> ' +
+          '<span class="sg-skill-name">' + sk.name + '</span>' +
+          '<span class="sg-skill-cost">技力' + sk.spCost + '</span>' +
+          '</label>';
+      }
+      content += '</div>';
+
+      // 设计专属技能按钮
+      content += '<div class="sg-exclusive-section">';
+      content += '<button class="sg-btn sg-btn-primary" id="rh_design_skill">设计专属武将技</button>';
+      content += '<div class="sg-exclusive-info" id="rh_exclusive_info">未设计专属技能</div>';
+      content += '</div>';
+
+      content += '</div>';
+
+      var buttons = [
+        { text: '取消', onClick: function() { DS().hide(); }, className: 'sg-btn' },
+        { text: '招募（花费200金）', onClick: function() {
+            var name = document.getElementById('rh_name').value.trim();
+            if (!name) { UIManager.showMessage('请输入武将姓名'); return; }
+
+            var faction = gs.factions[gs.playerFaction];
+            if (!faction || faction.gold < 200) {
+              UIManager.showMessage('金币不足');
+              return;
+            }
+
+            var troopType = document.getElementById('rh_troop').value;
+            var cityId = document.getElementById('rh_city').value;
+
+            var heroAttrs = {};
+            var totalAttr = 0;
+            for (var ai = 0; ai < attrs.length; ai++) {
+              var k = attrs[ai].key;
+              var v = parseInt(document.getElementById('rh_val_' + k).textContent, 10);
+              heroAttrs[k] = v;
+              totalAttr += v;
+            }
+
+            var skillIds = [];
+            var checks = document.querySelectorAll('#rh_skills input:checked');
+            for (var ci = 0; ci < checks.length; ci++) {
+              skillIds.push(checks[ci].value);
+            }
+
+            // 添加专属技能
+            if (UIManager._exclusiveSkillData) {
+              var exSkillId = window.SG.registerCustomSkill(UIManager._exclusiveSkillData);
+              skillIds.push(exSkillId);
+            }
+
+            if (skillIds.length === 0) {
+              UIManager.showMessage('请至少选择一个技能');
+              return;
+            }
+
+            faction.gold -= 200;
+
+            var heroId = gs.createCustomHero(
+              name, heroAttrs, troopType, skillIds, null, gs.playerFaction, cityId
+            );
+
+            // 设置专属技能归属
+            if (UIManager._exclusiveSkillData) {
+              for (var sk2 in window.SG.CUSTOM_SKILLS) {
+                if (window.SG.CUSTOM_SKILLS.hasOwnProperty(sk2) &&
+                    window.SG.CUSTOM_SKILLS[sk2].name === UIManager._exclusiveSkillData.name &&
+                    !window.SG.CUSTOM_SKILLS[sk2].exclusiveHero) {
+                  window.SG.CUSTOM_SKILLS[sk2].exclusiveHero = heroId;
+                  window.SG.SKILLS_DATA[sk2].exclusiveHero = heroId;
+                }
+              }
+            }
+
+            UIManager._exclusiveSkillData = null;
+            DS().hide();
+            UIManager.showMessage('成功招募武将：' + name);
+            UIManager.updateAll();
+          }, className: 'sg-btn sg-btn-primary'
+        }
+      ];
+
+      DS().show('招募武将', content, buttons);
+
+      // 属性分配逻辑
+      var attrState = { force: 50, intellect: 50, politics: 50, command: 50, charisma: 50 };
+      var totalPoints = 250;
+
+      function updateRemain() {
+        var used = 0;
+        for (var k in attrState) used += attrState[k];
+        var remainEl = document.getElementById('rh_remain');
+        if (remainEl) remainEl.textContent = totalPoints - used;
+      }
+
+      function bindAttrBtns() {
+        var minusBtns = document.querySelectorAll('.sg-attr-minus');
+        var plusBtns = document.querySelectorAll('.sg-attr-plus');
+        for (var i = 0; i < minusBtns.length; i++) {
+          minusBtns[i].onclick = function() {
+            var key = this.getAttribute('data-attr');
+            if (attrState[key] > 20) {
+              attrState[key]--;
+              var valEl = document.getElementById('rh_val_' + key);
+              if (valEl) valEl.textContent = attrState[key];
+              updateRemain();
+            }
+          };
+        }
+        for (var j = 0; j < plusBtns.length; j++) {
+          plusBtns[j].onclick = function() {
+            var key = this.getAttribute('data-attr');
+            var used = 0;
+            for (var k in attrState) used += attrState[k];
+            if (used < totalPoints && attrState[key] < 100) {
+              attrState[key]++;
+              var valEl = document.getElementById('rh_val_' + key);
+              if (valEl) valEl.textContent = attrState[key];
+              updateRemain();
+            }
+          };
+        }
+      }
+
+      // 技能选择限制2个
+      function bindSkillChecks() {
+        var checks = document.querySelectorAll('#rh_skills input[type="checkbox"]');
+        for (var i = 0; i < checks.length; i++) {
+          checks[i].onchange = function() {
+            var checked = document.querySelectorAll('#rh_skills input:checked');
+            if (checked.length > 2) {
+              this.checked = false;
+              UIManager.showMessage('最多选择2个武将技');
+            }
+          };
+        }
+      }
+
+      // 设计专属技能按钮
+      var designBtn = document.getElementById('rh_design_skill');
+      if (designBtn) {
+        designBtn.onclick = function() {
+          UIManager.showSkillDesigner(function(skillData) {
+            UIManager._exclusiveSkillData = skillData;
+            var info = document.getElementById('rh_exclusive_info');
+            if (info) info.textContent = '专属技能：' + skillData.name + '（' + (window.SG.EFFECT_TYPE_NAMES && window.SG.EFFECT_TYPE_NAMES[skillData.effectType] || skillData.effectType) + '）';
+          });
+        };
+      }
+
+      setTimeout(function() {
+        bindAttrBtns();
+        bindSkillChecks();
+      }, 10);
+    },
+
+    _exclusiveSkillData: null,
+
+    // ===== 专属技能设计器 =====
+    showSkillDesigner: function(callback) {
+      var content = '<div class="sg-skill-designer">';
+
+      content += '<div class="sg-form-row"><label>技能名称：</label><input type="text" id="sd_name" placeholder="请输入技能名" class="sg-form-input"></div>';
+
+      // 效果类型
+      content += '<div class="sg-form-row"><label>效果类型：</label><select id="sd_effect" class="sg-form-select">';
+      var effectTypes = [
+        { val: 'damage', label: '伤害' },
+        { val: 'heal_troops', label: '恢复兵力' },
+        { val: 'heal_hp', label: '恢复HP' },
+        { val: 'restore_sp', label: '恢复技力' },
+        { val: 'buff_attack', label: '攻击增益' },
+        { val: 'buff_defense', label: '防御增益' },
+        { val: 'debuff_attack', label: '攻击减益' },
+        { val: 'debuff_defense', label: '防御减益' },
+        { val: 'morale_up', label: '士气提升' },
+        { val: 'morale_down', label: '士气降低' },
+        { val: 'burn', label: '灼烧（伤害+持续伤害）' },
+        { val: 'stun', label: '眩晕（伤害+概率眩晕）' }
+      ];
+      for (var e = 0; e < effectTypes.length; e++) {
+        content += '<option value="' + effectTypes[e].val + '">' + effectTypes[e].label + '</option>';
+      }
+      content += '</select></div>';
+
+      // 技能范围
+      content += '<div class="sg-form-row"><label>技能范围：</label><select id="sd_range" class="sg-form-select">';
+      content += '<option value="single">单体</option>';
+      content += '<option value="area">群体</option>';
+      content += '<option value="self">自身</option>';
+      content += '<option value="ally">我方全体</option>';
+      content += '</select></div>';
+
+      // 技能元素
+      content += '<div class="sg-form-row"><label>技能元素：</label><select id="sd_element" class="sg-form-select">';
+      content += '<option value="ink">墨系</option>';
+      content += '<option value="fire">火系</option>';
+      content += '<option value="lightning">雷系</option>';
+      content += '</select></div>';
+
+      // 威力
+      content += '<div class="sg-form-row"><label>技能威力：</label>';
+      content += '<input type="range" id="sd_power" min="30" max="150" value="80" class="sg-slider">';
+      content += '<span id="sd_power_val" class="sg-slider-val">80</span></div>';
+
+      // 消耗
+      content += '<div class="sg-form-row"><label>技力消耗：</label>';
+      content += '<input type="range" id="sd_cost" min="10" max="60" value="35" class="sg-slider">';
+      content += '<span id="sd_cost_val" class="sg-slider-val">35</span></div>';
+
+      // 描述
+      content += '<div class="sg-form-row"><label>技能描述：</label><input type="text" id="sd_desc" placeholder="描述你的专属技能" class="sg-form-input"></div>';
+
+      // 威力预估
+      content += '<div class="sg-skill-preview">';
+      content += '<div class="sg-preview-title">技能预览</div>';
+      content += '<div id="sd_preview">调整参数查看效果</div>';
+      content += '</div>';
+
+      content += '</div>';
+
+      var buttons = [
+        { text: '取消', onClick: function() { DS().hide(); }, className: 'sg-btn' },
+        { text: '确认设计', onClick: function() {
+            var name = document.getElementById('sd_name').value.trim();
+            if (!name) { UIManager.showMessage('请输入技能名称'); return; }
+
+            var effectType = document.getElementById('sd_effect').value;
+            var range = document.getElementById('sd_range').value;
+            var element = document.getElementById('sd_element').value;
+            var power = parseInt(document.getElementById('sd_power').value, 10);
+            var spCost = parseInt(document.getElementById('sd_cost').value, 10);
+            var desc = document.getElementById('sd_desc').value.trim() || name;
+
+            var skillData = {
+              name: name,
+              effectType: effectType,
+              spCost: spCost,
+              power: power,
+              range: range,
+              element: element,
+              desc: desc,
+              heroId: null
+            };
+
+            DS().hide();
+            if (callback) callback(skillData);
+          }, className: 'sg-btn sg-btn-primary'
+        }
+      ];
+
+      DS().show('设计专属武将技', content, buttons);
+
+      setTimeout(function() {
+        var powerSlider = document.getElementById('sd_power');
+        var powerVal = document.getElementById('sd_power_val');
+        var costSlider = document.getElementById('sd_cost');
+        var costVal = document.getElementById('sd_cost_val');
+        var effectSel = document.getElementById('sd_effect');
+        var rangeSel = document.getElementById('sd_range');
+        var preview = document.getElementById('sd_preview');
+
+        function updatePreview() {
+          if (!preview) return;
+          var p = parseInt(powerSlider.value, 10);
+          var c = parseInt(costSlider.value, 10);
+          var eff = effectSel.value;
+          var rng = rangeSel.value;
+          var effName = window.SG.EFFECT_TYPE_NAMES ? (window.SG.EFFECT_TYPE_NAMES[eff] || eff) : eff;
+          var rngName = window.SG.RANGE_NAMES ? (window.SG.RANGE_NAMES[rng] || rng) : rng;
+          preview.innerHTML = '效果：' + effName + '　|　范围：' + rngName + '<br>威力：' + p + '　|　消耗：' + c + ' 技力';
+        }
+
+        if (powerSlider) powerSlider.oninput = function() { powerVal.textContent = powerSlider.value; updatePreview(); };
+        if (costSlider) costSlider.oninput = function() { costVal.textContent = costSlider.value; updatePreview(); };
+        if (effectSel) effectSel.onchange = updatePreview;
+        if (rangeSel) rangeSel.onchange = updatePreview;
+        updatePreview();
+      }, 10);
     },
 
     // ===== 内部：创建属性条HTML =====

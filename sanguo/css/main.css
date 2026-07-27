@@ -650,3 +650,241 @@ html, body {
     width: 100%;
   }
 }
+
+/* ===== 表单元素 ===== */
+.sg-form-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 10px;
+}
+
+.sg-form-row label {
+  width: 90px;
+  color: #c4a882;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sg-form-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: #1a1a1a;
+  color: #e8d4b0;
+  border: 1px solid #666;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.sg-form-input:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+}
+
+.sg-form-select {
+  flex: 1;
+  padding: 6px 10px;
+  background: #1a1a1a;
+  color: #e8d4b0;
+  border: 1px solid #666;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sg-form-select:focus {
+  outline: none;
+  border-color: #ffd700;
+}
+
+/* ===== 属性分配 ===== */
+.sg-attr-total {
+  text-align: center;
+  color: #ffd700;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.sg-attr-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sg-attr-label {
+  width: 60px;
+  color: #c4a882;
+  font-size: 13px;
+}
+
+.sg-attr-btn {
+  width: 28px;
+  height: 26px;
+  cursor: pointer;
+  background: #333;
+  color: #e8d4b0;
+  border: 1px solid #666;
+  border-radius: 4px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sg-attr-btn:hover {
+  background: #444;
+  border-color: #888;
+}
+
+.sg-attr-btn:active {
+  background: #222;
+}
+
+.sg-attr-val {
+  width: 40px;
+  text-align: center;
+  color: #ffd700;
+  font-size: 14px;
+}
+
+/* ===== 技能选择 ===== */
+.sg-skill-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.sg-skill-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #2a2015;
+  border: 1px solid #5a4a30;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #c4a882;
+  transition: all 0.2s;
+}
+
+.sg-skill-option:hover {
+  background: #3a3020;
+  border-color: #8a7a5a;
+}
+
+.sg-skill-option input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #ffd700;
+}
+
+.sg-skill-option .sg-skill-name {
+  color: #e8d4b0;
+  font-weight: bold;
+}
+
+.sg-skill-option .sg-skill-cost {
+  color: #8aa;
+  font-size: 12px;
+}
+
+/* ===== 专属技能设计 ===== */
+.sg-exclusive-section {
+  margin-top: 15px;
+  padding: 12px;
+  background: rgba(255, 215, 0, 0.05);
+  border: 1px dashed #8a7030;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.sg-exclusive-info {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #ffd700;
+}
+
+.sg-skill-designer {
+  min-width: 400px;
+}
+
+.sg-skill-preview {
+  margin-top: 15px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #5a4a30;
+  border-radius: 6px;
+}
+
+.sg-preview-title {
+  color: #ffd700;
+  font-size: 14px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+#sd_preview {
+  text-align: center;
+  color: #c4a882;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.sg-slider {
+  flex: 1;
+  accent-color: #ffd700;
+  cursor: pointer;
+}
+
+.sg-slider-val {
+  width: 40px;
+  text-align: right;
+  color: #ffd700;
+  font-size: 14px;
+}
+
+/* ===== 招募武将对话框 ===== */
+.sg-recruit-hero {
+  min-width: 420px;
+}
+
+/* ===== 标题栏 ===== */
+.sg-section-title {
+  color: #ffd700;
+  font-size: 14px;
+  margin: 15px 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #5a4a30;
+}
+
+/* ===== 对话框内容区域滚动条 ===== */
+.sg-dialog-content::-webkit-scrollbar,
+.sg-skill-select::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sg-dialog-content::-webkit-scrollbar-track,
+.sg-skill-select::-webkit-scrollbar-track {
+  background: #1a1510;
+  border-radius: 3px;
+}
+
+.sg-dialog-content::-webkit-scrollbar-thumb,
+.sg-skill-select::-webkit-scrollbar-thumb {
+  background: #5a4a30;
+  border-radius: 3px;
+}
+
+.sg-dialog-content::-webkit-scrollbar-thumb:hover,
+.sg-skill-select::-webkit-scrollbar-thumb:hover {
+  background: #7a6a50;
+}

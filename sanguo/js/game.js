@@ -29,6 +29,7 @@ window.SG = window.SG || {};
       this.phase = 'strategic';
       this.armies = [];
       this.battle = null;
+      this.customFactionId = null;
 
       // 初始化势力资源
       this.factions = {
@@ -508,6 +509,213 @@ window.SG = window.SG || {};
       this.heroes = data.heroes;
       this.armies = data.armies || [];
       this.battle = data.battle || null;
+      this.customFactionId = data.customFactionId || null;
+
+      // 恢复自定义技能
+      if (data.customSkills) {
+        for (var skId in data.customSkills) {
+          if (data.customSkills.hasOwnProperty(skId)) {
+            window.SG.SKILLS_DATA[skId] = data.customSkills[skId];
+            if (!window.SG.CUSTOM_SKILLS) window.SG.CUSTOM_SKILLS = {};
+            window.SG.CUSTOM_SKILLS[skId] = data.customSkills[skId];
+          }
+        }
+      }
+
+      // 恢复势力名称和颜色映射
+      if (data.factionNames) {
+        if (!window.SG.FACTION_NAMES) window.SG.FACTION_NAMES = {};
+        for (var fn in data.factionNames) {
+          if (data.factionNames.hasOwnProperty(fn)) {
+            window.SG.FACTION_NAMES[fn] = data.factionNames[fn];
+          }
+        }
+      }
+      if (data.factionColors) {
+        if (!window.SG.FACTION_COLORS) window.SG.FACTION_COLORS = {};
+        for (var fc in data.factionColors) {
+          if (data.factionColors.hasOwnProperty(fc)) {
+            window.SG.FACTION_COLORS[fc] = data.factionColors[fc];
+          }
+        }
+      }
+    },
+
+    // 初始化自定义势力（君主）
+    initCustomFaction: function(monarchName, factionName, factionColor, attrs, startCityId, customSkillData) {
+      this.init();
+
+      var customFactionId = 'custom_' + Date.now();
+      this.customFactionId = customFactionId;
+      this.playerFaction = customFactionId;
+
+      // 添加势力
+      this.factions[customFactionId] = { gold: 500, food: 500 };
+
+      // 注册势力名称和颜色
+      if (!window.SG.FACTION_NAMES) window.SG.FACTION_NAMES = {};
+      if (!window.SG.FACTION_COLORS) window.SG.FACTION_COLORS = {};
+      window.SG.FACTION_NAMES[customFactionId] = factionName;
+      window.SG.FACTION_COLORS[customFactionId] = factionColor;
+
+      // 创建君主武将
+      var monarchSkillIds = [];
+      if (customSkillData) {
+        var customSkillId = window.SG.registerCustomSkill(customSkillData);
+        monarchSkillIds.push(customSkillId);
+      }
+
+      var monarchId = this._createHeroInternal({
+        name: monarchName,
+        faction: customFactionId,
+        force: attrs.force || 70,
+        intellect: attrs.intellect || 70,
+        politics: attrs.politics || 70,
+        command: attrs.command || 70,
+        charisma: attrs.charisma || 70,
+        loyalty: 100,
+        level: 5,
+        skills: monarchSkillIds,
+        advisorSkill: customSkillData ? null : 'jimou',
+        maxTroops: 8000,
+        troopType: attrs.troopType || 'infantry',
+        sp: 100,
+        maxSp: 100,
+        isMonarch: true
+      });
+
+      // 占领起始城市
+      var startCity = this.cities[startCityId];
+      if (startCity) {
+        // 移除原势力的武将
+        if (startCity.faction !== 'none') {
+          for (var i = startCity.heroes.length - 1; i >= 0; i--) {
+            var h = this.heroes[startCity.heroes[i]];
+            if (h) {
+              h.location = null;
+              h.status = 'idle';
+              h.troops = 0;
+            }
+          }
+        }
+        startCity.faction = customFactionId;
+        startCity.heroes = [monarchId];
+        startCity.troops = 3000;
+
+        // 分配兵力
+        var monarch = this.heroes[monarchId];
+        monarch.location = startCityId;
+        monarch.troops = 3000;
+        monarch.status = 'idle';
+      }
+
+      return { factionId: customFactionId, monarchId: monarchId };
+    },
+
+    // 创建自定义武将（招募用）
+    createCustomHero: function(name, attrs, troopType, skillIds, advisorSkillId, factionId, cityId) {
+      var heroId = this._createHeroInternal({
+        name: name,
+        faction: factionId,
+        force: attrs.force || 50,
+        intellect: attrs.intellect || 50,
+        politics: attrs.politics || 50,
+        command: attrs.command || 50,
+        charisma: attrs.charisma || 50,
+        loyalty: 100,
+        level: attrs.level || 1,
+        skills: skillIds || [],
+        advisorSkill: advisorSkillId || null,
+        maxTroops: 5000 + (attrs.level || 1) * 500,
+        troopType: troopType || 'infantry',
+        sp: 80,
+        maxSp: 80 + (attrs.intellect || 50) * 0.4,
+        isCustom: true
+      });
+
+      // 放置到城市
+      if (cityId && this.cities[cityId]) {
+        var city = this.cities[cityId];
+        city.heroes.push(heroId);
+        var hero = this.heroes[heroId];
+        hero.location = cityId;
+        hero.troops = 0;
+        hero.status = 'idle';
+      }
+
+      return heroId;
+    },
+
+    // 内部：创建武将对象
+    _createHeroInternal: function(config) {
+      var id = 'custom_hero_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      var hero = {
+        id: id,
+        name: config.name || '无名',
+        faction: config.faction || 'none',
+        force: config.force || 50,
+        intellect: config.intellect || 50,
+        politics: config.politics || 50,
+        command: config.command || 50,
+        charisma: config.charisma || 50,
+        loyalty: config.loyalty !== undefined ? config.loyalty : 100,
+        level: config.level || 1,
+        exp: 0,
+        skills: (config.skills || []).slice(),
+        advisorSkill: config.advisorSkill || null,
+        maxTroops: config.maxTroops || 5000,
+        troopType: config.troopType || 'infantry',
+        sp: config.sp !== undefined ? config.sp : 80,
+        maxSp: config.maxSp !== undefined ? config.maxSp : 80,
+        isMonarch: config.isMonarch || false,
+        isCustom: config.isCustom !== false
+      };
+      // 运行时字段
+      hero.troops = 0;
+      hero.location = null;
+      hero.status = 'idle';
+      hero.hp = 100;
+      hero.maxHp = 100;
+      hero.developTarget = null;
+
+      this.heroes[id] = hero;
+      return id;
+    },
+
+    // 序列化状态（增强版，包含自定义数据）
+    toJSON: function() {
+      var customSkills = {};
+      if (window.SG.CUSTOM_SKILLS) {
+        for (var sId in window.SG.CUSTOM_SKILLS) {
+          if (window.SG.CUSTOM_SKILLS.hasOwnProperty(sId)) {
+            customSkills[sId] = window.SG.CUSTOM_SKILLS[sId];
+          }
+        }
+      }
+
+      var factionNames = {};
+      var factionColors = {};
+      if (window.SG.FACTION_NAMES && this.customFactionId) {
+        factionNames[this.customFactionId] = window.SG.FACTION_NAMES[this.customFactionId];
+      }
+      if (window.SG.FACTION_COLORS && this.customFactionId) {
+        factionColors[this.customFactionId] = window.SG.FACTION_COLORS[this.customFactionId];
+      }
+
+      return {
+        turn: this.turn,
+        phase: this.phase,
+        playerFaction: this.playerFaction,
+        customFactionId: this.customFactionId,
+        factions: JSON.parse(JSON.stringify(this.factions)),
+        cities: JSON.parse(JSON.stringify(this.cities)),
+        heroes: JSON.parse(JSON.stringify(this.heroes)),
+        armies: JSON.parse(JSON.stringify(this.armies)),
+        battle: this.battle ? JSON.parse(JSON.stringify(this.battle)) : null,
+        customSkills: customSkills,
+        factionNames: factionNames,
+        factionColors: factionColors
+      };
     }
   };
 
