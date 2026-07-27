@@ -536,6 +536,108 @@ window.SG = window.SG || {};
         ctx.globalAlpha = lAlpha * 0.3;
         ctx.fillStyle = '#fff';
         ctx.fillRect(cx - 60, cy - 50, 120, 100);
+      } else if (type === 'meteor') {
+        // 天命之子 - 陨石坠落特效
+        var fallProgress = Math.min(progress * 1.5, 1.0); // 前段快速下落
+        var explodeProgress = Math.max((progress - 0.4) / 0.6, 0); // 后段爆炸
+
+        // 陨石下落轨迹
+        if (progress < 0.5) {
+          var meteorY = -50 + (cy + 50) * (progress / 0.5);
+          var meteorX = cx + 30 * Math.sin(progress * 8);
+
+          // 拖尾
+          ctx.globalAlpha = 0.6 * (1 - progress);
+          var grad = ctx.createLinearGradient(meteorX, meteorY - 80, meteorX, meteorY);
+          grad.addColorStop(0, 'rgba(255,100,0,0)');
+          grad.addColorStop(1, 'rgba(255,200,0,0.8)');
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.moveTo(meteorX + 10 * Math.sin(progress * 6), meteorY - 80);
+          ctx.lineTo(meteorX, meteorY);
+          ctx.stroke();
+
+          // 陨石本体
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#ff4400';
+          ctx.beginPath();
+          ctx.arc(meteorX, meteorY, 12, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ffcc00';
+          ctx.beginPath();
+          ctx.arc(meteorX, meteorY, 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 爆炸
+        if (explodeProgress > 0) {
+          var expAlpha = (1 - explodeProgress);
+          // 冲击波
+          ctx.globalAlpha = expAlpha * 0.5;
+          ctx.strokeStyle = '#ff6600';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(cx, cy, explodeProgress * 150, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.strokeStyle = '#ffcc00';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, explodeProgress * 100, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // 碎片飞溅
+          for (var mi = 0; mi < 16; mi++) {
+            var mAngle = (Math.PI * 2 / 16) * mi + explodeProgress * 0.5;
+            var mR = explodeProgress * 120;
+            var mx2 = cx + Math.cos(mAngle) * mR;
+            var my2 = cy + Math.sin(mAngle) * mR;
+            var mSize = 4 * (1 - explodeProgress);
+            ctx.globalAlpha = expAlpha * 0.7;
+            ctx.fillStyle = mi % 2 === 0 ? '#ff4400' : '#ffaa00';
+            ctx.beginPath();
+            ctx.arc(mx2, my2, mSize, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // 中心闪光
+          ctx.globalAlpha = expAlpha * 0.4;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(cx, cy, (1 - explodeProgress) * 50, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // "天命之子" 文字
+        if (progress > 0.2 && progress < 0.9) {
+          var textAlpha = progress < 0.5 ? (progress - 0.2) / 0.3 : (0.9 - progress) / 0.4;
+          ctx.globalAlpha = textAlpha;
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 28px "KaiTi", "STKaiti", serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('天命之子', cx, cy - 80);
+          // 金光
+          ctx.globalAlpha = textAlpha * 0.3;
+          ctx.fillStyle = '#ffd700';
+          ctx.beginPath();
+          ctx.arc(cx, cy - 80, 60, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (type === 'meteor_shockwave') {
+        // 陨石冲击波（全屏）
+        var swAlpha = 1 - progress;
+        ctx.globalAlpha = swAlpha * 0.2;
+        ctx.fillStyle = '#ff4400';
+        ctx.fillRect(0, 0, w, h);
+
+        // 屏幕震动效果（通过画面抖动模拟）
+        if (progress < 0.3) {
+          ctx.globalAlpha = 0.15;
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, w, h);
+        }
       } else {
         // 水墨飞溅特效
         var inkAlpha = 1 - progress;
@@ -1054,6 +1156,26 @@ window.SG = window.SG || {};
             y: h / 2,
             animation: evt.animation || 'ink',
             duration: 700
+          });
+        }
+
+        // 天命之子：陨石动画
+        if (evt.destiny) {
+          // 全屏震动+陨石坠落效果
+          var opposeSide = evt.destiny.side === 'attacker' ? 'defender' : 'attacker';
+          var meteorX = opposeSide === 'attacker' ? w * 0.25 : w * 0.75;
+          this.addAnimation({
+            x: meteorX,
+            y: h / 2,
+            animation: 'meteor',
+            duration: 1500
+          });
+          // 额外小陨石到每个敌方武将位置
+          this.addAnimation({
+            x: w / 2,
+            y: h * 0.3,
+            animation: 'meteor_shockwave',
+            duration: 1200
           });
         }
       }

@@ -48,7 +48,8 @@ window.SG = window.SG || {};
         attackerAdvSkills: [],
         defenderAdvSkills: [],
         winner: null,
-        duelState: null
+        duelState: null,
+        destinyTriggered: false  // 天命之子是否已触发（每场战斗仅一次）
       };
 
       // 构建攻方武将战斗数据
@@ -213,6 +214,12 @@ window.SG = window.SG || {};
         var actualDmg = Math.min(defender.hp, heroDmg);
         defender.hp -= actualDmg;
         event.hpDamage += actualDmg;
+      }
+
+      // 天命之子：自定义君主HP降到10%以下时锁血并触发天降陨石
+      var destinyEvent = this._checkDestiny(defender, defData, defName, side);
+      if (destinyEvent) {
+        event.destiny = destinyEvent;
       }
 
       this._addLog(atkName + ' 攻击 ' + defName + '，兵力损失' + event.troopDamage + '，HP损失' + event.hpDamage);
@@ -684,6 +691,58 @@ window.SG = window.SG || {};
         return true;
       }
       return false;
+    },
+
+    // 天命之子：自定义君主HP<=10%时锁血+天降陨石
+    _checkDestiny: function(hero, heroData, heroName, side) {
+      if (this.state.destinyTriggered) return null;
+      if (!heroData || !heroData.isMonarch || !heroData.isCustom) return null;
+      if (hero.hp <= 0 || hero.maxHp <= 0) return null;
+
+      var threshold = Math.floor(hero.maxHp * 0.1);
+      if (hero.hp > threshold) return null;
+
+      // 锁血到10%
+      hero.hp = threshold;
+
+      // 天降陨石：对敌方全体造成毁灭性伤害
+      var opposeHeroes = side === 'attacker' ? this.state.defender.heroes : this.state.attacker.heroes;
+      var meteorDamage = Math.floor(hero.maxHp * 0.8);
+      var targets = [];
+
+      for (var i = 0; i < opposeHeroes.length; i++) {
+        var enemy = opposeHeroes[i];
+        if (enemy.hp <= 0 && enemy.troops <= 0) continue;
+
+        var totalDamage = meteorDamage;
+        if (enemy.troops > 0) {
+          var troopLoss = Math.min(enemy.troops, totalDamage);
+          enemy.troops -= troopLoss;
+          totalDamage -= troopLoss;
+        }
+        if (totalDamage > 0 && enemy.hp > 0) {
+          enemy.hp = Math.max(0, enemy.hp - totalDamage);
+        }
+        targets.push({ heroId: enemy.heroId, name: (window.SG.GameState.heroes[enemy.heroId] || {}).name || enemy.heroId });
+      }
+
+      // 全军士气暴涨
+      var allyHeroes = side === 'attacker' ? this.state.attacker.heroes : this.state.defender.heroes;
+      for (var j = 0; j < allyHeroes.length; j++) {
+        allyHeroes[j].morale = Math.min(200, allyHeroes[j].morale + 50);
+      }
+
+      this.state.destinyTriggered = true;
+      this._addLog('★ 天命之子！' + heroName + ' 气血将尽之际，天降陨石！敌方全军覆灭！');
+
+      return {
+        type: 'destiny',
+        heroName: heroName,
+        heroId: heroData.id,
+        side: side,
+        damage: meteorDamage,
+        targets: targets
+      };
     },
 
     // 添加战斗日志

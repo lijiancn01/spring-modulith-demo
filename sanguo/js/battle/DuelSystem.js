@@ -115,10 +115,9 @@ window.SG = window.SG || {};
           isPlayer: !attackerIsPlayer
         },
         log: [],
-        // 战斗暂停标志（等待AI行动）
         aiPending: false,
-        // 上一次执行的临时效果（用于动画）
-        lastAction: null
+        lastAction: null,
+        destinyTriggered: false  // 天命之子是否已触发
       };
 
       this._addLog('单挑开始：' + atkData.name + ' VS ' + defData.name + '！');
@@ -254,12 +253,15 @@ window.SG = window.SG || {};
         this._addLog(hero.data.name + ' 出招攻击 ' + enemy.data.name + '，造成 ' + dmg + ' 点伤害' + critTxt);
       }
 
+      // 天命之子：受击方是自定义君主且HP<=10%时触发
+      var destinyEvent = this._checkDestiny(enemy, actor);
+
       // 攻击方小幅掉士气
       hero.morale = Math.max(0, hero.morale - 2);
       // 受击方士气降低
       enemy.morale = Math.max(0, enemy.morale - 3);
 
-      return {
+      var event = {
         type: 'attack',
         actor: actor,
         attackerName: hero.data.name,
@@ -270,6 +272,10 @@ window.SG = window.SG || {};
         targetHp: enemy.hp,
         targetMaxHp: enemy.maxHp
       };
+      if (destinyEvent) {
+        event.destiny = destinyEvent;
+      }
+      return event;
     },
 
     // 防御
@@ -328,6 +334,12 @@ window.SG = window.SG || {};
         event.targetHp = enemy.hp;
         event.targetMaxHp = enemy.maxHp;
         this._addLog(hero.data.name + ' 施展「' + skillData.name + '」对 ' + enemy.data.name + ' 造成 ' + dmg + ' 点伤害！');
+
+        // 天命之子检查
+        var destinyEvent = this._checkDestiny(enemy, actor);
+        if (destinyEvent) {
+          event.destiny = destinyEvent;
+        }
         enemy.morale = Math.max(0, enemy.morale - 5);
 
         // 灼烧：附加持续伤害
@@ -483,6 +495,38 @@ window.SG = window.SG || {};
       if (!this.state) return;
       this.state.log.push({ turn: this.state.turn, msg: msg });
       if (this.state.log.length > 50) this.state.log.shift();
+    },
+
+    // 天命之子：自定义君主单挑中HP<=10%时锁血+爆发
+    _checkDestiny: function(hero, attackerActor) {
+      if (this.state.destinyTriggered) return null;
+      if (!hero.data || !hero.data.isMonarch || !hero.data.isCustom) return null;
+      if (hero.hp <= 0 || hero.maxHp <= 0) return null;
+
+      var threshold = Math.floor(hero.maxHp * 0.1);
+      if (hero.hp > threshold) return null;
+
+      // 锁血到10%
+      hero.hp = threshold;
+
+      // 天命爆发：对敌方造成巨额伤害
+      var enemy = hero === this.state.attacker ? this.state.defender : this.state.attacker;
+      var burstDamage = Math.floor(hero.maxHp * 1.5);
+      enemy.hp = Math.max(0, enemy.hp - burstDamage);
+      hero.morale = Math.min(200, hero.morale + 80);
+
+      this.state.destinyTriggered = true;
+      this._addLog('★ 天命之子！' + hero.data.name + ' 气血将尽之际爆发天命之力！雷霆万钧！');
+
+      return {
+        type: 'destiny',
+        heroName: hero.data.name,
+        heroId: hero.data.id,
+        damage: burstDamage,
+        targetName: enemy.data.name,
+        targetHp: enemy.hp,
+        targetMaxHp: enemy.maxHp
+      };
     },
 
     // 获取当前单挑状态
